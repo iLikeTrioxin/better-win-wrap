@@ -104,6 +104,12 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
     pWindow->m_pinned   = true;
+    pWindow->m_bCreatedOverFullscreen = true;
+    pWindow->m_bIsFullscreen       = true;
+    //bool         m_bDontSendFullscreen = false;
+    pWindow->m_bWantsInitialFullscreen = true;
+    pWindow->m_bFakeFullscreenState = true;
+    
     pWindow->sendWindowSize(true);
 
     bgWindows.push_back(pWindow);
