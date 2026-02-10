@@ -1,0 +1,11 @@
+[repository]
+name = "better-win-wrap"
+authors = ["iLikeTrioxin"]
+
+[plugin-name]
+description = "Set an application as wallpaper using dispatchers"
+authors = ["iLikeTrioxin"]
+output = "better-win-wrap.so"
+build = [
+    "make all"
+]
