@@ -131,7 +131,7 @@ static SDispatchResult freeWallpaperWindows(std::string in) {
 }
 
 void onRenderStage(eRenderStage stage) {
-    if (stage != RENDER_PRE_WINDOWS){
+    if (stage != RENDER_BEGIN){
         return;
     }
     for (auto& bg : bgWindows) {
