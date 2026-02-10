@@ -2,7 +2,7 @@
 name = "better-win-wrap"
 authors = ["iLikeTrioxin"]
 
-[plugin-name]
+[better-win-wrap]
 description = "Set an application as wallpaper using dispatchers"
 authors = ["iLikeTrioxin"]
 output = "better-win-wrap.so"
