@@ -112,9 +112,9 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
     // pWindow->sendWindowSize(true);
 
     bgWindows.push_back(pWindow);
-    //pWindow->m_hidden = true;
+    pWindow->m_hidden = true;
 
-    g_pInputManager->refocus();
+    //g_pInputManager->refocus();
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
     return SDispatchResult{};
 }
@@ -149,11 +149,11 @@ void onRenderStage(eRenderStage stage) {
             continue;
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
-        //bgw->m_hidden = false;
+        bgw->m_hidden = false;
 
         g_pHyprRenderer->renderWindow(bgw, g_pHyprOpenGL->m_renderData.pMonitor.lock(), Time::steadyNow(), false, RENDER_PASS_ALL, false, true);
 
-        //bgw->m_hidden = true;
+        bgw->m_hidden = true;
     }
 }
 
@@ -166,13 +166,13 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
     }
 
     // cant use setHidden cuz that sends suspended and shit too that would be laggy
-    //PWINDOW->m_hidden = false;
+    PWINDOW->m_hidden = false;
 
     ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
     if (const auto MON = PWINDOW->m_monitor.lock(); MON)
         g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
 
-    //PWINDOW->m_hidden = true;
+    PWINDOW->m_hidden = true;
 }
 
 void onCommit(void* owner, void* data) {
@@ -184,13 +184,13 @@ void onCommit(void* owner, void* data) {
     }
 
     // cant use setHidden cuz that sends suspended and shit too that would be laggy
-    //PWINDOW->m_hidden = false;
+    PWINDOW->m_hidden = false;
 
     ((origCommit)commitHook->m_original)(owner, data);
     if (const auto MON = PWINDOW->m_monitor.lock(); MON)
         g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
 
-    //PWINDOW->m_hidden = true;
+    PWINDOW->m_hidden = true;
 }
 
 void onConfigReloaded() {
