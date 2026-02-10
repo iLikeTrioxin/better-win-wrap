@@ -14,7 +14,6 @@
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/config/ConfigManager.hpp>
 #include <hyprland/src/render/Renderer.hpp>
-#include <hyprland/src/managers/KeybindManager.hpp>
 #include <hyprland/src/managers/LayoutManager.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/helpers/time/Time.hpp>
@@ -52,7 +51,7 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
     if (!monitor || !monitor->m_activeWorkspace)
         return SDispatchResult{.success = false, .error = "No active workspace"};
 
-    const auto pWindow = g_pCompositor->getWindowByRegex(vars[0]);
+    PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
 
     if (!pWindow)
         return SDispatchResult{.success = false, .error = "Could not find target window"};
@@ -104,7 +103,7 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
-    //pWindow->m_pinned   = true;
+    pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
     bgWindows.push_back(pWindow);
@@ -125,13 +124,17 @@ static SDispatchResult freeWallpaperWindows(std::string in) {
     for(auto& bg: bgWindows){
         const auto bgw = bg.lock();
         bgw->m_hidden = false;
+        bgw->m_pinned   = false;
+        if (bgw->m_isFloating) g_pLayoutManager->getCurrentLayout()->changeWindowFloatingMode(bgw);
+        bgw->sendWindowSize(true);
+        onCloseWindow(bgw);
     }
-    bgWindows.clear();
+    g_pInputManager->refocus();
     return SDispatchResult{};
 }
 
 void onRenderStage(eRenderStage stage) {
-    if (stage != RENDER_PRE_WINDOW){
+    if (stage != RENDER_PRE_WINDOWS){
         return;
     }
     for (auto& bg : bgWindows) {
@@ -214,6 +217,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }
 
     // clang-format off
+    static auto P  = HyprlandAPI::registerCallbackDynamic(PHANDLE, "openWindow", [&](void* self, SCallbackInfo& info, std::any data) { });
     static auto P2 = HyprlandAPI::registerCallbackDynamic(PHANDLE, "closeWindow", [&](void* self, SCallbackInfo& info, std::any data) { onCloseWindow(std::any_cast<PHLWINDOW>(data)); });
     static auto P3 = HyprlandAPI::registerCallbackDynamic(PHANDLE, "render", [&](void* self, SCallbackInfo& info, std::any data) { onRenderStage(std::any_cast<eRenderStage>(data)); });
     static auto P4 = HyprlandAPI::registerCallbackDynamic(PHANDLE, "configReloaded", [&](void* self, SCallbackInfo& info, std::any data) { onConfigReloaded(); });
