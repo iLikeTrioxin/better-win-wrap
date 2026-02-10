@@ -121,12 +121,13 @@ void onCloseWindow(PHLWINDOW pWindow) {
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window {}", pWindow);
 }
 
-static SDispatchResult freeWallpaperWindows() {
+static SDispatchResult freeWallpaperWindows(std::string in) {
     for(auto& bg: bgWindows){
         const auto bgw = bg.lock();
         bgw->m_hidden = false;
-        onCloseWindow(bg);
     }
+    bgWindows.clear();
+    return SDispatchResult{};
 }
 
 void onRenderStage(eRenderStage stage) {
