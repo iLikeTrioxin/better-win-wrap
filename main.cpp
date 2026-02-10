@@ -104,7 +104,7 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
-    pWindow->m_pinned   = true;
+    //pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
     bgWindows.push_back(pWindow);
