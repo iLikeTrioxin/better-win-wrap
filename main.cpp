@@ -99,7 +99,7 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
 
     const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))), static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f)))};
 
-    pWindow->m_pinned   = true;
+    //pWindow->m_pinned   = true;
 
     // pWindow->m_realSize->setValueAndWarp(newSize);
     // pWindow->m_realPosition->setValueAndWarp(newPos);
