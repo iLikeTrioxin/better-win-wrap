@@ -57,10 +57,6 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
     if (!pWindow)
         return SDispatchResult{.success = false, .error = "Could not find target window"};
 
-    const auto PMONITOR = pWindow->m_monitor.lock();
-    if (!PMONITOR)
-        return SDispatchResult{.success = false, .error = "monitor.lock() failed"};
-
     if (!pWindow->m_isFloating)
         g_pLayoutManager->getCurrentLayout()->changeWindowFloatingMode(pWindow);
 
