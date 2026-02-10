@@ -57,6 +57,10 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
     if (!pWindow)
         return SDispatchResult{.success = false, .error = "Could not find target window"};
 
+    const auto PMONITOR = pWindow->m_monitor.lock();
+    if (!PMONITOR)
+        return SDispatchResult{.success = false, .error = "monitor.lock() failed"};
+
     if (!pWindow->m_isFloating)
         g_pLayoutManager->getCurrentLayout()->changeWindowFloatingMode(pWindow);
 
@@ -127,9 +131,9 @@ static SDispatchResult freeWallpaperWindows(std::string in) {
 }
 
 void onRenderStage(eRenderStage stage) {
-    if (stage != RENDER_PRE_WINDOWS)
+    if (stage != RENDER_PRE_WINDOWS){
         return;
-
+    }
     for (auto& bg : bgWindows) {
         const auto bgw = bg.lock();
 
@@ -182,19 +186,19 @@ void onCommit(void* owner, void* data) {
 }
 
 void onConfigReloaded() {
-    static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
-    const std::string  classRule(*PCLASS);
-    if (!classRule.empty()) {
-        g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, class:^("} + classRule + ")$");
-        g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, class:^("} + classRule + ")$");
-    }
-
-    static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
-    const std::string  titleRule(*PTITLE);
-    if (!titleRule.empty()) {
-        g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, title:^("} + titleRule + ")$");
-        g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, title:^("} + titleRule + ")$");
-    }
+    // static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
+    // const std::string  classRule(*PCLASS);
+    // if (!classRule.empty()) {
+    //     g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, class:^("} + classRule + ")$");
+    //     g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, class:^("} + classRule + ")$");
+    // }
+    //
+    // static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
+    // const std::string  titleRule(*PTITLE);
+    // if (!titleRule.empty()) {
+    //     g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, title:^("} + titleRule + ")$");
+    //     g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, title:^("} + titleRule + ")$");
+    // }
 }
 
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
@@ -210,20 +214,11 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }
 
     // clang-format off
-    bool success = HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:xtd:makeWindowWallpaper", ::makeWindowWallpaper);
-    success *= HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:xtd:freeWallpaperWindows", ::freeWallpaperWindows);
     static auto P2 = HyprlandAPI::registerCallbackDynamic(PHANDLE, "closeWindow", [&](void* self, SCallbackInfo& info, std::any data) { onCloseWindow(std::any_cast<PHLWINDOW>(data)); });
     static auto P3 = HyprlandAPI::registerCallbackDynamic(PHANDLE, "render", [&](void* self, SCallbackInfo& info, std::any data) { onRenderStage(std::any_cast<eRenderStage>(data)); });
     static auto P4 = HyprlandAPI::registerCallbackDynamic(PHANDLE, "configReloaded", [&](void* self, SCallbackInfo& info, std::any data) { onConfigReloaded(); });
     // clang-format on
-
-    if (success)
-        HyprlandAPI::addNotification(PHANDLE, "[bww] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
-    else {
-        HyprlandAPI::addNotification(PHANDLE, "[bww] Failure in initialization: failed to register dispatchers", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-        throw std::runtime_error("[bww] Dispatchers failed");
-    }
-
+    
     auto fns = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN7Desktop4View11CSubsurface8onCommitEv");
     if (fns.size() < 1)
         throw std::runtime_error("hyprwinwrap: onCommit not found");
@@ -233,6 +228,17 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     if (fns.size() < 1)
         throw std::runtime_error("hyprwinwrap: listener_commitWindow not found");
     commitHook = HyprlandAPI::createFunctionHook(PHANDLE, fns[0].address, (void*)&onCommit);
+    
+    bool success = true;
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "makeWindowWallpaper", ::makeWindowWallpaper);
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "freeWallpaperWindows", ::freeWallpaperWindows);
+
+    if (success)
+        HyprlandAPI::addNotification(PHANDLE, "[bww] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
+    else {
+        HyprlandAPI::addNotification(PHANDLE, "[bww] Failure in initialization: failed to register dispatchers", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        throw std::runtime_error("[bww] Dispatchers failed");
+    }
 
     bool hkResult = subsurfaceHook->hook();
     hkResult      = hkResult && commitHook->hook();
