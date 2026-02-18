@@ -105,9 +105,6 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
-    //pWindow->m_createdOverFullscreen = true;
-    //bool         m_bDontSendFullscreen = false;
-    //pWindow->m_wantsInitialFullscreen = true;
     
     pWindow->sendWindowSize(true);
 
