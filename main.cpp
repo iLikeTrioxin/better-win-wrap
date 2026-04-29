@@ -7,6 +7,7 @@
 #include <any>
 #include <sstream>
 
+#define protected public
 #define private public
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
@@ -18,6 +19,7 @@
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #undef private
+#undef protected
 
 #include <hyprutils/string/VarList.hpp>
 #include "globals.hpp"
@@ -199,7 +201,7 @@ static SDispatchResult dispatchFreeWindow(std::string in) {
         const auto bgw = bg.lock();
         bgw->m_hidden = false;
         bgw->m_pinned   = false;
-        if (bgw->m_isFloating) g_layoutManager->changeFloatingMode(bgw);
+        if (bgw->m_isFloating) g_layoutManager->changeFloatingMode(bg->layoutTarget());
         bgw->sendWindowSize(true);
         onCloseWindow(bgw);
     }
