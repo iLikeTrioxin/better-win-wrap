@@ -182,6 +182,7 @@ void reinitWindow(PHLWINDOW pWindow, PHLWORKSPACE pWorkspace) {
     pWindow->m_position = newPos;
     pWindow->m_pinFullscreened = true;
     pWindow->m_pinned   = true;
+    pWindow->m_isMapped = false;
     pWindow->sendWindowSize(true);
     pWindow->m_hidden = true;
 
@@ -289,6 +290,7 @@ void onRenderStage(eRenderStage stage) {
 
     for (auto& bg : bgWindows) {
         const auto bgw = bg.lock();
+        bgw->m_isMapped = true;
 
         if (bgw->m_monitor != g_pHyprRenderer->renderData().pMonitor)
             continue;
