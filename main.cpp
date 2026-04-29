@@ -1,3 +1,4 @@
+#include <hyprland/src/desktop/DesktopTypes.hpp>
 #define WLR_USE_UNSTABLE
 
 #include <unistd.h>
@@ -114,6 +115,67 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
 
     return SDispatchResult{};
+}
+
+void reinitWindow(PHLWINDOW pWindow, PHLWORKSPACE pWorkspace) {
+    static auto* const PSIZEX = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x")->getDataStaticPtr();
+    static auto* const PSIZEY = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y")->getDataStaticPtr();
+    static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
+    static auto* const PPOSY  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_y")->getDataStaticPtr();
+
+    const auto PMONITOR = pWindow->m_monitor.lock();
+    if (!PMONITOR)
+        return;
+
+    if (!pWindow->m_isFloating)
+        g_layoutManager->changeFloatingMode(pWindow->layoutTarget());
+
+    float sx = 100.f, sy = 100.f, px = 0.f, py = 0.f;
+
+    try {
+        sx = std::stof(*PSIZEX);
+    } catch (...) {}
+    try {
+        sy = std::stof(*PSIZEY);
+    } catch (...) {}
+    try {
+        px = std::stof(*PPOSX);
+    } catch (...) {}
+    try {
+        py = std::stof(*PPOSY);
+    } catch (...) {}
+
+    sx = std::clamp(sx, 1.f, 100.f);
+    sy = std::clamp(sy, 1.f, 100.f);
+    px = std::clamp(px, 0.f, 100.f);
+    py = std::clamp(py, 0.f, 100.f);
+
+    if (px + sx > 100.f) {
+        Log::logger->log(Log::WARN, "[hyprwinwrap] size_x (%d) + pos_x (%d) > 100, adjusting size_x to %d", sx, px, 100.f - px);
+        sx = 100.f - px;
+    }
+    if (py + sy > 100.f) {
+        Log::logger->log(Log::WARN, "[hyprwinwrap] size_y (%d) + pos_y (%d) > 100, adjusting size_y to %d", sy, py, 100.f - py);
+        sy = 100.f - py;
+    }
+
+    const Vector2D monitorSize = PMONITOR->m_size;
+    const Vector2D monitorPos  = PMONITOR->m_position;
+
+    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)), static_cast<int>(monitorSize.y * (sy / 100.f))};
+
+    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))), static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f)))};
+
+    pWindow->m_realSize->setValueAndWarp(newSize);
+    pWindow->m_realPosition->setValueAndWarp(newPos);
+    pWindow->m_size     = newSize;
+    pWindow->m_position = newPos;
+    pWindow->m_pinFullscreened = true;
+    pWindow->m_pinned   = true;
+    pWindow->sendWindowSize(true);
+    pWindow->m_hidden = true;
+
+    g_pInputManager->refocus();
 }
 
 void                      onNewWindow(PHLWINDOW pWindow) {
@@ -296,6 +358,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }
 
     static auto P  = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onNewWindow(w); });
+    static auto P5  = Event::bus()->m_events.window.moveToWorkspace.listen([&](PHLWINDOW win, PHLWORKSPACE work) { reinitWindow(win, work); });
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
     static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
     static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReloaded(); });
