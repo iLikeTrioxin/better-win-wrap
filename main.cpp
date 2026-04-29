@@ -239,9 +239,9 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
     // cant use setHidden cuz that sends suspended and shit too that would be laggy
     PWINDOW->m_hidden = false;
 
-    ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
-    if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        MON->m_blurFBDirty = true;
+    //((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
+    //if (const auto MON = PWINDOW->m_monitor.lock(); MON)
+    //    MON->m_blurFBDirty = true;
 
     PWINDOW->m_hidden = true;
 }
@@ -257,9 +257,9 @@ void onCommit(void* owner, void* data) {
     // cant use setHidden cuz that sends suspended and shit too that would be laggy
     PWINDOW->m_hidden = false;
 
-    ((origCommit)commitHook->m_original)(owner, data);
-    if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        MON->m_blurFBDirty = true;
+    //((origCommit)commitHook->m_original)(owner, data);
+    //if (const auto MON = PWINDOW->m_monitor.lock(); MON)
+    //    MON->m_blurFBDirty = true;
 
     PWINDOW->m_hidden = true;
 }
@@ -293,7 +293,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("[hww] Version mismatch");
     }
 
-    static auto P  = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) {  });
+    static auto P  = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onNewWindow(w); });
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
     static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
     static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReloaded(); });
