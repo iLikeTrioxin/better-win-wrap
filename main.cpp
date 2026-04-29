@@ -10,17 +10,14 @@
 
 #define private public
 #include <hyprland/src/Compositor.hpp>
-#include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/config/ConfigManager.hpp>
 #include <hyprland/src/render/Renderer.hpp>
-#include <hyprland/src/managers/LayoutManager.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/helpers/time/Time.hpp>
+#include <hyprland/src/layout/LayoutManager.hpp>
+#include <hyprland/src/event/EventBus.hpp>
 #undef private
-
-#include <hyprutils/string/VarList.hpp>
-using namespace Hyprutils::String;
 
 #include "globals.hpp"
 
@@ -37,13 +34,13 @@ typedef void (*origCommit)(void* owner, void* data);
 
 std::vector<PHLWINDOWREF> bgWindows;
 
-static SDispatchResult makeWindowWallpaper(std::string in) {
+static SDispatchResult DispatchSetWindow(std::string window) {
     static auto* const PSIZEX = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x")->getDataStaticPtr();
     static auto* const PSIZEY = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y")->getDataStaticPtr();
     static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
     static auto* const PPOSY  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_y")->getDataStaticPtr();
 
-    CVarList vars(in, 0, ',');
+    CVarList vars(window, 0, ',');
 
     auto focusState = Desktop::focusState();
     auto monitor = focusState->monitor();
@@ -61,7 +58,7 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
         return SDispatchResult{.success = false, .error = "monitor.lock() failed"};
 
     if (!pWindow->m_isFloating)
-        g_pLayoutManager->getCurrentLayout()->changeWindowFloatingMode(pWindow);
+        g_layoutManager->changeFloatingMode(pWindow->layoutTarget());
 
     float sx = 100.f, sy = 100.f, px = 0.f, py = 0.f;
 
@@ -99,13 +96,11 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
 
     const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))), static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f)))};
 
-    pWindow->m_pinned   = true;
-
     pWindow->m_realSize->setValueAndWarp(newSize);
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
-    
+    pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
     bgWindows.push_back(pWindow);
@@ -113,7 +108,83 @@ static SDispatchResult makeWindowWallpaper(std::string in) {
 
     g_pInputManager->refocus();
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
+
     return SDispatchResult{};
+}
+
+void                      onNewWindow(PHLWINDOW pWindow) {
+    static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
+    static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
+
+    static auto* const PSIZEX = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x")->getDataStaticPtr();
+    static auto* const PSIZEY = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y")->getDataStaticPtr();
+    static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
+    static auto* const PPOSY  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_y")->getDataStaticPtr();
+
+    const std::string  classRule(*PCLASS);
+    const std::string  titleRule(*PTITLE);
+
+    const bool         classMatches = !classRule.empty() && pWindow->m_initialClass == classRule;
+    const bool         titleMatches = !titleRule.empty() && pWindow->m_title == titleRule;
+
+    if (!classMatches && !titleMatches)
+        return;
+
+    const auto PMONITOR = pWindow->m_monitor.lock();
+    if (!PMONITOR)
+        return;
+
+    if (!pWindow->m_isFloating)
+        g_layoutManager->changeFloatingMode(pWindow->layoutTarget());
+
+    float sx = 100.f, sy = 100.f, px = 0.f, py = 0.f;
+
+    try {
+        sx = std::stof(*PSIZEX);
+    } catch (...) {}
+    try {
+        sy = std::stof(*PSIZEY);
+    } catch (...) {}
+    try {
+        px = std::stof(*PPOSX);
+    } catch (...) {}
+    try {
+        py = std::stof(*PPOSY);
+    } catch (...) {}
+
+    sx = std::clamp(sx, 1.f, 100.f);
+    sy = std::clamp(sy, 1.f, 100.f);
+    px = std::clamp(px, 0.f, 100.f);
+    py = std::clamp(py, 0.f, 100.f);
+
+    if (px + sx > 100.f) {
+        Log::logger->log(Log::WARN, "[hyprwinwrap] size_x (%d) + pos_x (%d) > 100, adjusting size_x to %d", sx, px, 100.f - px);
+        sx = 100.f - px;
+    }
+    if (py + sy > 100.f) {
+        Log::logger->log(Log::WARN, "[hyprwinwrap] size_y (%d) + pos_y (%d) > 100, adjusting size_y to %d", sy, py, 100.f - py);
+        sy = 100.f - py;
+    }
+
+    const Vector2D monitorSize = PMONITOR->m_size;
+    const Vector2D monitorPos  = PMONITOR->m_position;
+
+    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)), static_cast<int>(monitorSize.y * (sy / 100.f))};
+
+    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))), static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f)))};
+
+    pWindow->m_realSize->setValueAndWarp(newSize);
+    pWindow->m_realPosition->setValueAndWarp(newPos);
+    pWindow->m_size     = newSize;
+    pWindow->m_position = newPos;
+    pWindow->m_pinned   = true;
+    pWindow->sendWindowSize(true);
+
+    bgWindows.push_back(pWindow);
+    pWindow->m_hidden = true;
+
+    g_pInputManager->refocus();
+    Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
 }
 
 void onCloseWindow(PHLWINDOW pWindow) {
@@ -136,9 +207,9 @@ static SDispatchResult freeWallpaperWindows(std::string in) {
 }
 
 void onRenderStage(eRenderStage stage) {
-    if (stage != RENDER_PRE_WINDOWS){
+    if (stage != RENDER_POST_WALLPAPER)
         return;
-    }
+
     for (auto& bg : bgWindows) {
         const auto bgw = bg.lock();
 
@@ -191,19 +262,19 @@ void onCommit(void* owner, void* data) {
 }
 
 void onConfigReloaded() {
-    // static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
-    // const std::string  classRule(*PCLASS);
-    // if (!classRule.empty()) {
-    //     g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, class:^("} + classRule + ")$");
-    //     g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, class:^("} + classRule + ")$");
-    // }
-    //
-    // static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
-    // const std::string  titleRule(*PTITLE);
-    // if (!titleRule.empty()) {
-    //     g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, title:^("} + titleRule + ")$");
-    //     g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, title:^("} + titleRule + ")$");
-    // }
+    static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
+    const std::string  classRule(*PCLASS);
+    if (!classRule.empty()) {
+        g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, class:^("} + classRule + ")$");
+        g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, class:^("} + classRule + ")$");
+    }
+
+    static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
+    const std::string  titleRule(*PTITLE);
+    if (!titleRule.empty()) {
+        g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, title:^("} + titleRule + ")$");
+        g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, title:^("} + titleRule + ")$");
+    }
 }
 
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
@@ -218,13 +289,11 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("[hww] Version mismatch");
     }
 
-    // clang-format off
-    static auto P  = HyprlandAPI::registerCallbackDynamic(PHANDLE, "openWindow", [&](void* self, SCallbackInfo& info, std::any data) { });
-    static auto P2 = HyprlandAPI::registerCallbackDynamic(PHANDLE, "closeWindow", [&](void* self, SCallbackInfo& info, std::any data) { onCloseWindow(std::any_cast<PHLWINDOW>(data)); });
-    static auto P3 = HyprlandAPI::registerCallbackDynamic(PHANDLE, "render", [&](void* self, SCallbackInfo& info, std::any data) { onRenderStage(std::any_cast<eRenderStage>(data)); });
-    static auto P4 = HyprlandAPI::registerCallbackDynamic(PHANDLE, "configReloaded", [&](void* self, SCallbackInfo& info, std::any data) { onConfigReloaded(); });
-    // clang-format on
-    
+    static auto P  = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onNewWindow(w); });
+    static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
+    static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
+    static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReloaded(); });
+
     auto fns = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN7Desktop4View11CSubsurface8onCommitEv");
     if (fns.size() < 1)
         throw std::runtime_error("hyprwinwrap: onCommit not found");
@@ -234,7 +303,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     if (fns.size() < 1)
         throw std::runtime_error("hyprwinwrap: listener_commitWindow not found");
     commitHook = HyprlandAPI::createFunctionHook(PHANDLE, fns[0].address, (void*)&onCommit);
-    
+
     bool success = true;
     success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "makeWindowWallpaper", ::makeWindowWallpaper);
     success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "freeWallpaperWindows", ::freeWallpaperWindows);
