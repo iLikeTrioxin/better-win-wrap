@@ -241,7 +241,7 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
 
     ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
     if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        Render::GL::g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
+        MON->m_blurFBDirty = true;
 
     PWINDOW->m_hidden = true;
 }
@@ -259,7 +259,7 @@ void onCommit(void* owner, void* data) {
 
     ((origCommit)commitHook->m_original)(owner, data);
     if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        Render::GL::g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
+        MON->m_blurFBDirty = true;
 
     PWINDOW->m_hidden = true;
 }
