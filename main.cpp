@@ -1,10 +1,10 @@
-#include <hyprland/src/SharedDefs.hpp>
 #define WLR_USE_UNSTABLE
+
+#include <hyprland/src/SharedDefs.hpp>
 
 #include <unistd.h>
 #include <vector>
 
-#include <hyprland/src/includes.hpp>
 #include <any>
 #include <sstream>
 
