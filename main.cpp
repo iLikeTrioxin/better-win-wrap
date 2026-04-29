@@ -9,6 +9,7 @@
 
 #define private public
 #include <hyprland/src/Compositor.hpp>
+#include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/config/legacy/ConfigManager.hpp>
 #include <hyprland/src/render/Renderer.hpp>
@@ -40,7 +41,7 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
     static auto* const PPOSY  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_y")->getDataStaticPtr();
 
-    CVarList vars(window, 0, ',');
+    Hyprutils::String::CVarList vars(window, 0, ',');
 
     auto focusState = Desktop::focusState();
     auto monitor = focusState->monitor();
@@ -198,7 +199,7 @@ static SDispatchResult dispatchFreeWindow(std::string in) {
         const auto bgw = bg.lock();
         bgw->m_hidden = false;
         bgw->m_pinned   = false;
-        if (bgw->m_isFloating) g_layoutManager->getCurrentLayout()->changeWindowFloatingMode(bgw);
+        if (bgw->m_isFloating) g_layoutManager->changeWindowFloatingMode(bgw);
         bgw->sendWindowSize(true);
         onCloseWindow(bgw);
     }
