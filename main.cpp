@@ -1,10 +1,10 @@
-#define WLR_USE_UNSTABLE
-
 #include <hyprland/src/SharedDefs.hpp>
+#define WLR_USE_UNSTABLE
 
 #include <unistd.h>
 #include <vector>
 
+#include <hyprland/src/includes.hpp>
 #include <any>
 #include <sstream>
 
@@ -16,6 +16,8 @@
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/helpers/time/Time.hpp>
+#include <hyprland/src/managers/LayoutManager.hpp>
+#include <hyprland/src/event/EventBus.hpp>
 #undef private
 
 #include <hyprutils/string/VarList.hpp>
