@@ -117,17 +117,16 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     return SDispatchResult{};
 }
 
-void reinitWindow(PHLWINDOW pWindow, PHLWORKSPACE pWorkspace) {
-    
-    bool found = false;
+void markWallpaper(PHLWINDOW pWin, PHLWORKSPACE pWork){
     for(auto& win : bgWindows){
-        if(win == pWindow){
-            found = true;
+        if(win == pWin){
+            pWin->m_isMapped = false;
             break;
         }
     }
-    if(found == false) return;
+}
 
+void reinitWindow(PHLWINDOW pWindow) { 
     static auto* const PSIZEX = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x")->getDataStaticPtr();
     static auto* const PSIZEY = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y")->getDataStaticPtr();
     static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
@@ -182,7 +181,6 @@ void reinitWindow(PHLWINDOW pWindow, PHLWORKSPACE pWorkspace) {
     pWindow->m_position = newPos;
     pWindow->m_pinFullscreened = true;
     pWindow->m_pinned   = true;
-    pWindow->m_isMapped = false;
     pWindow->sendWindowSize(true);
     pWindow->m_hidden = true;
 
@@ -290,7 +288,7 @@ void onRenderStage(eRenderStage stage) {
 
     for (auto& bg : bgWindows) {
         const auto bgw = bg.lock();
-        bgw->m_isMapped = true;
+        if(bgw->m_isMapped == false) reinitWindow(bgw);
 
         if (bgw->m_monitor != g_pHyprRenderer->renderData().pMonitor)
             continue;
@@ -370,7 +368,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }
 
     static auto P  = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onNewWindow(w); });
-    static auto P5  = Event::bus()->m_events.window.moveToWorkspace.listen([&](PHLWINDOW win, PHLWORKSPACE work) { reinitWindow(win, work); });
+    static auto P5  = Event::bus()->m_events.window.moveToWorkspace.listen([&](PHLWINDOW win, PHLWORKSPACE work) { markWallpaper(win, work); });
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
     static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
     static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReloaded(); });
