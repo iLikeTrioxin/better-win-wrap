@@ -199,7 +199,7 @@ static SDispatchResult dispatchFreeWindow(std::string in) {
         const auto bgw = bg.lock();
         bgw->m_hidden = false;
         bgw->m_pinned   = false;
-        if (bgw->m_isFloating) g_layoutManager->changeWindowFloatingMode(bgw);
+        if (bgw->m_isFloating) g_layoutManager->changeFloatingMode(bgw);
         bgw->sendWindowSize(true);
         onCloseWindow(bgw);
     }
@@ -214,13 +214,13 @@ void onRenderStage(eRenderStage stage) {
     for (auto& bg : bgWindows) {
         const auto bgw = bg.lock();
 
-        if (bgw->m_monitor != Render::GL::g_pHyprOpenGL->m_renderData.pMonitor)
+        if (bgw->m_monitor != g_pHyprRenderer->renderData().pMonitor)
             continue;
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
 
-        g_pHyprRenderer->renderWindow(bgw, Render::GL::g_pHyprOpenGL->renderData().pMonitor.lock(), Time::steadyNow(), false, Render::RENDER_PASS_ALL, false, true);
+        g_pHyprRenderer->renderWindow(bgw, g_pHyprRenderer->renderData().pMonitor.lock(), Time::steadyNow(), false, Render::RENDER_PASS_ALL, false, true);
 
         bgw->m_hidden = true;
     }
