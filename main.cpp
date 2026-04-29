@@ -120,7 +120,7 @@ static SDispatchResult dispatchSetWindow(std::string window) {
 void markWallpaper(PHLWINDOW pWin, PHLWORKSPACE pWork){
     for(auto& win : bgWindows){
         if(win == pWin){
-            pWindow->m_pinned   = false;
+            pWin->m_pinned   = false;
             break;
         }
     }
