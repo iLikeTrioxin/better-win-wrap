@@ -120,7 +120,7 @@ static SDispatchResult dispatchSetWindow(std::string window) {
 void markWallpaper(PHLWINDOW pWin, PHLWORKSPACE pWork){
     for(auto& win : bgWindows){
         if(win == pWin){
-            pWin->m_isMapped = false;
+            pWindow->m_pinned   = false;
             break;
         }
     }
@@ -288,7 +288,7 @@ void onRenderStage(eRenderStage stage) {
 
     for (auto& bg : bgWindows) {
         const auto bgw = bg.lock();
-        if(bgw->m_isMapped == false) reinitWindow(bgw);
+        if(bgw->m_pinned == false) reinitWindow(bgw);
 
         if (bgw->m_monitor != g_pHyprRenderer->renderData().pMonitor)
             continue;
