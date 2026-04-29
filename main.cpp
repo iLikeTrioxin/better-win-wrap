@@ -118,6 +118,16 @@ static SDispatchResult dispatchSetWindow(std::string window) {
 }
 
 void reinitWindow(PHLWINDOW pWindow, PHLWORKSPACE pWorkspace) {
+    
+    bool found = false;
+    for(auto& win : bgWindows){
+        if(win == pWindow){
+            found = true;
+            break;
+        }
+    }
+    if(found == false) return;
+
     static auto* const PSIZEX = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x")->getDataStaticPtr();
     static auto* const PSIZEY = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y")->getDataStaticPtr();
     static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
