@@ -1,4 +1,3 @@
-#include <hyprland/src/SharedDefs.hpp>
 #define WLR_USE_UNSTABLE
 
 #include <unistd.h>
@@ -11,7 +10,7 @@
 #define private public
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
-#include <hyprland/src/config/ConfigManager.hpp>
+#include <hyprland/src/config/legacy/ConfigManager.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/helpers/time/Time.hpp>
@@ -213,13 +212,13 @@ void onRenderStage(eRenderStage stage) {
     for (auto& bg : bgWindows) {
         const auto bgw = bg.lock();
 
-        if (bgw->m_monitor != g_pHyprOpenGL->m_renderData.pMonitor)
+        if (bgw->m_monitor != Render::GL::g_pHyprOpenGL->m_renderData.pMonitor)
             continue;
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
 
-        g_pHyprRenderer->renderWindow(bgw, g_pHyprOpenGL->m_renderData.pMonitor.lock(), Time::steadyNow(), false, RENDER_PASS_ALL, false, true);
+        g_pHyprRenderer->renderWindow(bgw, Render::GL::g_pHyprOpenGL->m_renderData.pMonitor.lock(), Time::steadyNow(), false, RENDER::RENDER_PASS_ALL, false, true);
 
         bgw->m_hidden = true;
     }
@@ -238,7 +237,7 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
 
     ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
     if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
+        Render::GL::g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
 
     PWINDOW->m_hidden = true;
 }
@@ -256,7 +255,7 @@ void onCommit(void* owner, void* data) {
 
     ((origCommit)commitHook->m_original)(owner, data);
     if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
+        Render::GL::g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
 
     PWINDOW->m_hidden = true;
 }
