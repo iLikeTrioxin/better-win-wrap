@@ -103,6 +103,8 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
+    pWindow->m_isMapped = false;
+    pWindow->m_pinFullscreened = true;
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
