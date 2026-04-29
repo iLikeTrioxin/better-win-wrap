@@ -266,15 +266,15 @@ void onConfigReloaded() {
     static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
     const std::string  classRule(*PCLASS);
     if (!classRule.empty()) {
-        Config::mgr()->parseKeyword("windowrulev2", std::string{"float, class:^("} + classRule + ")$");
-        Config::mgr()->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, class:^("} + classRule + ")$");
+        mgr->parseKeyword("windowrulev2", std::string{"float, class:^("} + classRule + ")$");
+        mgr->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, class:^("} + classRule + ")$");
     }
 
     static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
     const std::string  titleRule(*PTITLE);
     if (!titleRule.empty()) {
-        Config::mgr()->parseKeyword("windowrulev2", std::string{"float, title:^("} + titleRule + ")$");
-        Config::mgr()->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, title:^("} + titleRule + ")$");
+        mgr->parseKeyword("windowrulev2", std::string{"float, title:^("} + titleRule + ")$");
+        mgr->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, title:^("} + titleRule + ")$");
     }
 }
 
