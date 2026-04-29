@@ -33,7 +33,7 @@ typedef void (*origCommit)(void* owner, void* data);
 
 std::vector<PHLWINDOWREF> bgWindows;
 
-static SDispatchResult DispatchSetWindow(std::string window) {
+static SDispatchResult dispatchSetWindow(std::string window) {
     static auto* const PSIZEX = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x")->getDataStaticPtr();
     static auto* const PSIZEY = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y")->getDataStaticPtr();
     static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
@@ -192,12 +192,12 @@ void onCloseWindow(PHLWINDOW pWindow) {
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window {}", pWindow);
 }
 
-static SDispatchResult freeWallpaperWindows(std::string in) {
+static SDispatchResult dispatchFreeWindow(std::string in) {
     for(auto& bg: bgWindows){
         const auto bgw = bg.lock();
         bgw->m_hidden = false;
         bgw->m_pinned   = false;
-        if (bgw->m_isFloating) g_pLayoutManager->getCurrentLayout()->changeWindowFloatingMode(bgw);
+        if (bgw->m_isFloating) g_layoutManager->getCurrentLayout()->changeWindowFloatingMode(bgw);
         bgw->sendWindowSize(true);
         onCloseWindow(bgw);
     }
@@ -212,13 +212,13 @@ void onRenderStage(eRenderStage stage) {
     for (auto& bg : bgWindows) {
         const auto bgw = bg.lock();
 
-        if (bgw->m_monitor != g_pHyprOpenGL->m_renderData.pMonitor)
+        if (bgw->m_monitor != Render::GL::g_pHyprOpenGL->m_renderData.pMonitor)
             continue;
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
 
-        g_pHyprRenderer->renderWindow(bgw, g_pHyprOpenGL->m_renderData.pMonitor.lock(), Time::steadyNow(), false, Render::RENDER_PASS_ALL, false, true);
+        g_pHyprRenderer->renderWindow(bgw, Render::GL::g_pHyprOpenGL->renderData().pMonitor.lock(), Time::steadyNow(), false, Render::RENDER_PASS_ALL, false, true);
 
         bgw->m_hidden = true;
     }
@@ -237,7 +237,7 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
 
     ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
     if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
+        Render::GL::g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
 
     PWINDOW->m_hidden = true;
 }
@@ -255,7 +255,7 @@ void onCommit(void* owner, void* data) {
 
     ((origCommit)commitHook->m_original)(owner, data);
     if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
+        Render::GL::g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
 
     PWINDOW->m_hidden = true;
 }
@@ -304,8 +304,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     commitHook = HyprlandAPI::createFunctionHook(PHANDLE, fns[0].address, (void*)&onCommit);
 
     bool success = true;
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "makeWindowWallpaper", ::makeWindowWallpaper);
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "freeWallpaperWindows", ::freeWallpaperWindows);
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "makeWindowWallpaper", ::dispatchSetWindow);
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "freeWallpaperWindows", ::dispatchFreeWindow);
 
     if (success)
         HyprlandAPI::addNotification(PHANDLE, "[bww] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
