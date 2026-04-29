@@ -180,6 +180,7 @@ void                      onNewWindow(PHLWINDOW pWindow) {
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
+    pWindow->m_pinFullscreened = true;
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
@@ -239,9 +240,9 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
     // cant use setHidden cuz that sends suspended and shit too that would be laggy
     PWINDOW->m_hidden = false;
 
-    //((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
-    //if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-    //    MON->m_blurFBDirty = true;
+    ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
+    if (const auto MON = PWINDOW->m_monitor.lock(); MON)
+        MON->m_blurFBDirty = true;
 
     PWINDOW->m_hidden = true;
 }
@@ -257,9 +258,9 @@ void onCommit(void* owner, void* data) {
     // cant use setHidden cuz that sends suspended and shit too that would be laggy
     PWINDOW->m_hidden = false;
 
-    //((origCommit)commitHook->m_original)(owner, data);
-    //if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-    //    MON->m_blurFBDirty = true;
+    ((origCommit)commitHook->m_original)(owner, data);
+    if (const auto MON = PWINDOW->m_monitor.lock(); MON)
+        MON->m_blurFBDirty = true;
 
     PWINDOW->m_hidden = true;
 }
