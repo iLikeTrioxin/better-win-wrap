@@ -104,7 +104,7 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
-    pWindow->m_pinFullscreened = true;
+    pWindow->m_fullscreenState.internal = FSMODE_FULLSCREEN;
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
@@ -179,7 +179,7 @@ void reinitWindow(PHLWINDOW pWindow) {
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
-    pWindow->m_pinFullscreened = true;
+    pWindow->m_fullscreenState.internal = FSMODE_FULLSCREEN;
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
     pWindow->m_hidden = true;
@@ -252,7 +252,7 @@ void                      onNewWindow(PHLWINDOW pWindow) {
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
-    pWindow->m_pinFullscreened = true;
+    pWindow->m_fullscreenState.internal = FSMODE_FULLSCREEN;
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
