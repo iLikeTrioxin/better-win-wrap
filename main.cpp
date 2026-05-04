@@ -20,6 +20,7 @@
 #undef private
 #undef protected
 
+#include <hyprland/src/layout/space/Space.hpp>
 #include "globals.hpp"
 
 // Do NOT change this function
