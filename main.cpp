@@ -108,7 +108,7 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
-    pWindow->m_fullscreenState.internal = FSMODE_MAX;
+    pWindow->m_fullscreenState.client = FSMODE_FULLSCREEN;
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
