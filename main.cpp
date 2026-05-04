@@ -11,6 +11,7 @@
 
 #define protected public
 #define private public
+#include <hyprland/src/layout/space/Space.hpp>
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
