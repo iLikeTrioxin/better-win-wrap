@@ -119,6 +119,7 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     pWindow->m_hidden = true;
 
     g_pInputManager->refocus();
+    pWindow->layoutTarget()->rememberFloatingSize(newSize);
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
 
     return SDispatchResult{};
