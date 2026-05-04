@@ -61,7 +61,7 @@ static SDispatchResult dispatchSetWindow(std::string window) {
 
     const auto PMONITOR = pWindow->m_monitor.lock();
     if (!PMONITOR)
-        return SDispatchResult{.success = false, .error = "monitor.lock() failed"};
+        return SDispatchResult{.success = false, .error = "No monitor assigned"};
 
     if (!pWindow->m_isFloating)
         g_layoutManager->changeFloatingMode(pWindow->layoutTarget());
@@ -113,6 +113,10 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     pWindow->layoutTarget()->rememberFloatingSize(newSize);
     pWindow->layoutTarget()->space()->recalculate();
     pWindow->layoutTarget()->rememberFloatingSize(newSize);
+    pWindow->m_realSize->setValueAndWarp(newSize);
+    pWindow->m_realPosition->setValueAndWarp(newPos);
+    pWindow->m_size     = newSize;
+    pWindow->m_position = newPos;
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
