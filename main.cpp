@@ -65,6 +65,7 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     if (!pWindow->m_isFloating)
         g_layoutManager->changeFloatingMode(pWindow->layoutTarget());
 
+
     float sx = 100.f, sy = 100.f, px = 0.f, py = 0.f;
 
     try {
@@ -97,18 +98,18 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     const Vector2D monitorSize = PMONITOR->m_size;
     const Vector2D monitorPos  = PMONITOR->m_position;
 
-    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)) - 200, static_cast<int>(monitorSize.y * (sy / 100.f)) - 200};
+    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)), static_cast<int>(monitorSize.y * (sy / 100.f))};
 
-    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))) + 100, static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f))) + 100};
+    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))), static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f)))};
 
     WP<Config::Legacy::CConfigManager> mgr = dynamicPointerCast<Config::Legacy::CConfigManager>(WP<Config::IConfigManager>(Config::mgr()));
     mgr->parseKeyword("windowrulev2", std::string{"no_focus = true, pid:"} + std::to_string(pWindow->getPID()) + "");
     //mgr->parseKeyword("windowrulev2", std::string{"no_initial_focus true, pid:"} + pWindow->getPID() + "");
+    pWindow->layoutTarget()->rememberFloatingSize(newSize);
     pWindow->m_realSize->setValueAndWarp(newSize);
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
-    //pWindow->m_fullscreenState.client = FSMODE_FULLSCREEN;
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
