@@ -229,13 +229,13 @@ void onRenderStage(eRenderStage stage) {
             continue;
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
-        bgw->m_fullscreenState.internal = FSMODE_FULLSCREEN;
+        bgw->m_fullscreenState.internal = FSMODE_NONE;
         bgw->m_hidden = false;
 
         g_pHyprRenderer->renderWindow(bgw, g_pHyprRenderer->renderData().pMonitor.lock(), Time::steadyNow(), false, Render::RENDER_PASS_ALL, false, true);
 
         bgw->m_hidden = true;
-        bgw->m_fullscreenState.internal = FSMODE_NONE;
+        bgw->m_fullscreenState.internal = FSMODE_FULLSCREEN;
     }
 }
 
