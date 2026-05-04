@@ -186,7 +186,7 @@ void                      onNewWindow(PHLWINDOW pWindow) {
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
-    pWindow->m_fullscreenState.internal = FSMODE_MAX;
+    pWindow->m_fullscreenState.internal = FSMODE_FULLSCREEN;
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
@@ -229,11 +229,13 @@ void onRenderStage(eRenderStage stage) {
             continue;
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
+        bgw->m_fullscreenState.internal = FSMODE_FULLSCREEN;
         bgw->m_hidden = false;
 
-        g_pHyprRenderer->renderWindow(bgw, g_pHyprRenderer->renderData().pMonitor.lock(), Time::steadyNow(), false, Render::RENDER_PASS_ALL, true, true);
+        g_pHyprRenderer->renderWindow(bgw, g_pHyprRenderer->renderData().pMonitor.lock(), Time::steadyNow(), false, Render::RENDER_PASS_ALL, false, true);
 
         bgw->m_hidden = true;
+        bgw->m_fullscreenState.internal = FSMODE_NONE;
     }
 }
 
