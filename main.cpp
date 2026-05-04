@@ -97,9 +97,9 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     const Vector2D monitorSize = PMONITOR->m_size;
     const Vector2D monitorPos  = PMONITOR->m_position;
 
-    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)) - 20, static_cast<int>(monitorSize.y * (sy / 100.f)) - 20};
+    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)) - 200, static_cast<int>(monitorSize.y * (sy / 100.f)) - 200};
 
-    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))) + 10, static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f))) + 10};
+    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))) + 100, static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f))) + 100};
 
     WP<Config::Legacy::CConfigManager> mgr = dynamicPointerCast<Config::Legacy::CConfigManager>(WP<Config::IConfigManager>(Config::mgr()));
     mgr->parseKeyword("windowrulev2", std::string{"no_focus = true, pid:"} + std::to_string(pWindow->getPID()) + "");
