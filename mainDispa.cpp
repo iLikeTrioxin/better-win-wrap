@@ -1,3 +1,6 @@
+#include <hyprland/src/desktop/DesktopTypes.hpp>
+#include <hyprutils/math/Box.hpp>
+#include <string>
 #define WLR_USE_UNSTABLE
 
 #include <unistd.h>
@@ -9,7 +12,9 @@
 
 #define protected public
 #define private public
+#include <hyprland/src/layout/space/Space.hpp>
 #include <hyprland/src/Compositor.hpp>
+#include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/config/legacy/ConfigManager.hpp>
 #include <hyprland/src/render/Renderer.hpp>
@@ -20,6 +25,7 @@
 #undef private
 #undef protected
 
+#include <hyprutils/string/VarList.hpp>
 #include "globals.hpp"
 
 // Do NOT change this function
@@ -34,6 +40,88 @@ typedef void (*origCommitSubsurface)(Desktop::View::CSubsurface* thisptr);
 typedef void (*origCommit)(void* owner, void* data);
 
 std::vector<PHLWINDOWREF> bgWindows;
+
+static SDispatchResult dispatchSetWindow(std::string window) {
+    static auto* const PSIZEX = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x")->getDataStaticPtr();
+    static auto* const PSIZEY = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y")->getDataStaticPtr();
+    static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
+    static auto* const PPOSY  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_y")->getDataStaticPtr();
+
+    Hyprutils::String::CVarList vars(window, 0, ',');
+
+    auto focusState = Desktop::focusState();
+    auto monitor = focusState->monitor();
+    
+    if (!monitor || !monitor->m_activeWorkspace)
+        return SDispatchResult{.success = false, .error = "No active workspace"};
+
+    PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
+
+    if (!pWindow)
+        return SDispatchResult{.success = false, .error = "Could not find target window"};
+
+    const auto PMONITOR = pWindow->m_monitor.lock();
+    if (!PMONITOR)
+        return SDispatchResult{.success = false, .error = "No monitor assigned"};
+
+    if (!pWindow->m_isFloating)
+        g_layoutManager->changeFloatingMode(pWindow->layoutTarget());
+
+
+    float sx = 100.f, sy = 100.f, px = 0.f, py = 0.f;
+
+    try {
+        sx = std::stof(*PSIZEX);
+    } catch (...) {}
+    try {
+        sy = std::stof(*PSIZEY);
+    } catch (...) {}
+    try {
+        px = std::stof(*PPOSX);
+    } catch (...) {}
+    try {
+        py = std::stof(*PPOSY);
+    } catch (...) {}
+
+    sx = std::clamp(sx, 1.f, 100.f);
+    sy = std::clamp(sy, 1.f, 100.f);
+    px = std::clamp(px, 0.f, 100.f);
+    py = std::clamp(py, 0.f, 100.f);
+
+    if (px + sx > 100.f) {
+        Log::logger->log(Log::WARN, "[hyprwinwrap] size_x (%d) + pos_x (%d) > 100, adjusting size_x to %d", sx, px, 100.f - px);
+        sx = 100.f - px;
+    }
+    if (py + sy > 100.f) {
+        Log::logger->log(Log::WARN, "[hyprwinwrap] size_y (%d) + pos_y (%d) > 100, adjusting size_y to %d", sy, py, 100.f - py);
+        sy = 100.f - py;
+    }
+
+    const Vector2D monitorSize = PMONITOR->m_size;
+    const Vector2D monitorPos  = PMONITOR->m_position;
+
+    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)), static_cast<int>(monitorSize.y * (sy / 100.f))};
+
+    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))), static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f)))};
+
+    const CBox b(newPos.x, newPos.y, newSize.x, newSize.y);
+
+    pWindow->layoutTarget()->space()->setTargetGeom(b, pWindow->layoutTarget());
+    pWindow->m_realSize->setValueAndWarp(newSize);
+    pWindow->m_realPosition->setValueAndWarp(newPos);
+    pWindow->m_size     = newSize;
+    pWindow->m_position = newPos;
+    pWindow->m_pinned   = true;
+    pWindow->sendWindowSize(true);
+
+    bgWindows.push_back(pWindow);
+    pWindow->m_hidden = true;
+
+    g_pInputManager->refocus();
+    Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
+
+    return SDispatchResult{};
+}
 
 void                      onNewWindow(PHLWINDOW pWindow) {
     static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
@@ -117,6 +205,19 @@ void onCloseWindow(PHLWINDOW pWindow) {
     std::erase_if(bgWindows, [pWindow](const auto& ref) { return ref.expired() || ref.lock() == pWindow; });
 
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window {}", pWindow);
+}
+
+static SDispatchResult dispatchFreeWindow(std::string in) {
+    for(auto& bg: bgWindows){
+        const auto bgw = bg.lock();
+        bgw->m_hidden = false;
+        bgw->m_pinned   = false;
+        if (bgw->m_isFloating) g_layoutManager->changeFloatingMode(bg->layoutTarget());
+        bgw->sendWindowSize(true);
+        onCloseWindow(bgw);
+    }
+    g_pInputManager->refocus();
+    return SDispatchResult{};
 }
 
 void onRenderStage(eRenderStage stage) {
@@ -217,6 +318,17 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     if (fns.size() < 1)
         throw std::runtime_error("hyprwinwrap: listener_commitWindow not found");
     commitHook = HyprlandAPI::createFunctionHook(PHANDLE, fns[0].address, (void*)&onCommit);
+
+    bool success = true;
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "makeWindowWallpaper", ::dispatchSetWindow);
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "freeWallpaperWindows", ::dispatchFreeWindow);
+
+    if (success)
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
+    else {
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Failure in initialization: failed to register dispatchers", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        throw std::runtime_error("[hyprwinwrap] Dispatchers failed");
+    }
 
     bool hkResult = subsurfaceHook->hook();
     hkResult      = hkResult && commitHook->hook();
