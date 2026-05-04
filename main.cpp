@@ -260,7 +260,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 
     bool success = true;
     success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapsetwindow" , ::dispatchSetWindow );
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapFreeWindow", ::dispatchFreeWindow);
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapfreewindow", ::dispatchFreeWindow);
 
     if (success)
         HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
