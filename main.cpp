@@ -105,21 +105,20 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     WP<Config::Legacy::CConfigManager> mgr = dynamicPointerCast<Config::Legacy::CConfigManager>(WP<Config::IConfigManager>(Config::mgr()));
     mgr->parseKeyword("windowrulev2", std::string{"no_focus = true, pid:"} + std::to_string(pWindow->getPID()) + "");
     //mgr->parseKeyword("windowrulev2", std::string{"no_initial_focus true, pid:"} + pWindow->getPID() + "");
-    pWindow->layoutTarget()->rememberFloatingSize(newSize);
     pWindow->m_realSize->setValueAndWarp(newSize);
     pWindow->m_realPosition->setValueAndWarp(newPos);
-    pWindow->layoutTarget()->rememberFloatingSize(newSize);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
+    pWindow->layoutTarget()->rememberFloatingSize(newSize);
+    pWindow->layoutTarget()->space()->recalculate();
+    pWindow->layoutTarget()->rememberFloatingSize(newSize);
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
-    pWindow->layoutTarget()->rememberFloatingSize(newSize);
 
     bgWindows.push_back(pWindow);
     pWindow->m_hidden = true;
 
     g_pInputManager->refocus();
-    pWindow->layoutTarget()->rememberFloatingSize(newSize);
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
 
     return SDispatchResult{};
