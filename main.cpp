@@ -97,9 +97,9 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     const Vector2D monitorSize = PMONITOR->m_size;
     const Vector2D monitorPos  = PMONITOR->m_position;
 
-    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)) - 2, static_cast<int>(monitorSize.y * (sy / 100.f)) - 2};
+    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)) - 6, static_cast<int>(monitorSize.y * (sy / 100.f)) - 6};
 
-    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))) + 1, static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f))) + 1};
+    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))) + 3, static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f))) + 3};
 
     WP<Config::Legacy::CConfigManager> mgr = dynamicPointerCast<Config::Legacy::CConfigManager>(WP<Config::IConfigManager>(Config::mgr()));
     mgr->parseKeyword("windowrulev2", std::string{"no_focus = true, pid:"} + std::to_string(pWindow->getPID()) + "");
@@ -229,13 +229,11 @@ void onRenderStage(eRenderStage stage) {
             continue;
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
-        bgw->m_fullscreenState.internal = FSMODE_NONE;
         bgw->m_hidden = false;
 
         g_pHyprRenderer->renderWindow(bgw, g_pHyprRenderer->renderData().pMonitor.lock(), Time::steadyNow(), false, Render::RENDER_PASS_ALL, false, true);
 
         bgw->m_hidden = true;
-        bgw->m_fullscreenState.internal = FSMODE_FULLSCREEN;
     }
 }
 
