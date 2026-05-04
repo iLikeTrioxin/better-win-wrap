@@ -1,0 +1,44 @@
+10d9
+< #define protected public
+14c13
+< #include <hyprland/src/config/legacy/ConfigManager.hpp>
+---
+> #include <hyprland/src/config/ConfigManager.hpp>
+21d19
+< #undef protected
+23d20
+< #include <hyprland/src/layout/space/Space.hpp>
+100,102d96
+<     const CBox b(newPos.x, newPos.y, newSize.x, newSize.y);
+< 
+<     pWindow->layoutTarget()->space()->setTargetGeom(b, pWindow->layoutTarget());
+130c124
+<         if (bgw->m_monitor != g_pHyprRenderer->renderData().pMonitor)
+---
+>         if (bgw->m_monitor != g_pHyprOpenGL->m_renderData.pMonitor)
+136c130
+<         g_pHyprRenderer->renderWindow(bgw, g_pHyprRenderer->renderData().pMonitor.lock(), Time::steadyNow(), false, Render::RENDER_PASS_ALL, false, true);
+---
+>         g_pHyprRenderer->renderWindow(bgw, g_pHyprOpenGL->m_renderData.pMonitor.lock(), Time::steadyNow(), false, RENDER_PASS_ALL, false, true);
+155c149
+<         MON->m_blurFBDirty = true;
+---
+>         g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
+173c167
+<         MON->m_blurFBDirty = true;
+---
+>         g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
+179d172
+<     WP<Config::Legacy::CConfigManager> mgr = dynamicPointerCast<Config::Legacy::CConfigManager>(WP<Config::IConfigManager>(Config::mgr()));
+183,184c176,177
+<         mgr->parseKeyword("windowrulev2", std::string{"float, class:^("} + classRule + ")$");
+<         mgr->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, class:^("} + classRule + ")$");
+---
+>         g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, class:^("} + classRule + ")$");
+>         g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, class:^("} + classRule + ")$");
+190,191c183,184
+<         mgr->parseKeyword("windowrulev2", std::string{"float, title:^("} + titleRule + ")$");
+<         mgr->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, title:^("} + titleRule + ")$");
+---
+>         g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, title:^("} + titleRule + ")$");
+>         g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, title:^("} + titleRule + ")$");

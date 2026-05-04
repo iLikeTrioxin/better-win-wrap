@@ -1,3 +1,4 @@
+#include <hyprland/src/render/decorations/DecorationPositioner.hpp>
 #define WLR_USE_UNSTABLE
 
 #include <unistd.h>
@@ -110,16 +111,14 @@ static SDispatchResult dispatchSetWindow(std::string window) {
 
     if (!pWindow)
         return SDispatchResult{.success = false, .error = "Could not find target window"};
-
+    
     configureWindow(pWindow);
-
-    return SDispatchResult{};
 }
 
 void onNewWindow(PHLWINDOW pWindow) {
     static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
     static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
-
+    
     const std::string  classRule(*PCLASS);
     const std::string  titleRule(*PTITLE);
 
@@ -128,7 +127,7 @@ void onNewWindow(PHLWINDOW pWindow) {
 
     if (!classMatches && !titleMatches)
         return;
-
+    
     configureWindow(pWindow);
 }
 
@@ -141,10 +140,10 @@ void onCloseWindow(PHLWINDOW pWindow) {
 static SDispatchResult dispatchFreeWindow(std::string window) {
     Hyprutils::String::CVarList vars(window, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
-
+    
     for(auto& bg : bgWindows){
         const auto bgw = bg.lock();
-
+    
         if (bgw != pWindow) continue;
 
         onCloseWindow(bgw);
