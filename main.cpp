@@ -1,4 +1,5 @@
 #include <hyprland/src/desktop/DesktopTypes.hpp>
+#include <hyprutils/math/Box.hpp>
 #include <string>
 #define WLR_USE_UNSTABLE
 
@@ -111,6 +112,8 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
     pWindow->layoutTarget()->rememberFloatingSize(newSize);
+    const CBox b(newPos.x, newPos.y, newSize.x, newSize.y);
+    pWindow->layoutTarget()->space()->setTargetGeom(b, pWindow->layoutTarget());
     pWindow->layoutTarget()->space()->recalculate();
     pWindow->layoutTarget()->rememberFloatingSize(newSize);
     pWindow->m_realSize->setValueAndWarp(newSize);
