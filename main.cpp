@@ -259,7 +259,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     commitHook = HyprlandAPI::createFunctionHook(PHANDLE, fns[0].address, (void*)&onCommit);
 
     bool success = true;
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapSetWindow" , ::dispatchSetWindow );
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapsetwindow" , ::dispatchSetWindow );
     success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapFreeWindow", ::dispatchFreeWindow);
 
     if (success)
