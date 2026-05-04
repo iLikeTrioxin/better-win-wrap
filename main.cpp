@@ -120,11 +120,11 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
-    bgWindows.push_back(pWindow);
-    pWindow->m_hidden = true;
+    //bgWindows.push_back(pWindow);
+    //pWindow->m_hidden = true;
 
     g_pInputManager->refocus();
-    Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
+    //Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
 
     return SDispatchResult{};
 }
