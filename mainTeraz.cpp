@@ -7,17 +7,21 @@
 #include <any>
 #include <sstream>
 
+#define protected public
 #define private public
 #include <hyprland/src/Compositor.hpp>
+#include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
-#include <hyprland/src/config/ConfigManager.hpp>
+#include <hyprland/src/config/legacy/ConfigManager.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
 #include <hyprland/src/helpers/time/Time.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #undef private
+#undef protected
 
+#include <hyprutils/string/VarList.hpp>
 #include <hyprland/src/layout/space/Space.hpp>
 #include "globals.hpp"
 
@@ -34,23 +38,11 @@ typedef void (*origCommit)(void* owner, void* data);
 
 std::vector<PHLWINDOWREF> bgWindows;
 
-void                      onNewWindow(PHLWINDOW pWindow) {
-    static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
-    static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
-
+void configureWindow(PHLWINDOW pWindow){
     static auto* const PSIZEX = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x")->getDataStaticPtr();
     static auto* const PSIZEY = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y")->getDataStaticPtr();
     static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
     static auto* const PPOSY  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_y")->getDataStaticPtr();
-
-    const std::string  classRule(*PCLASS);
-    const std::string  titleRule(*PTITLE);
-
-    const bool         classMatches = !classRule.empty() && pWindow->m_initialClass == classRule;
-    const bool         titleMatches = !titleRule.empty() && pWindow->m_title == titleRule;
-
-    if (!classMatches && !titleMatches)
-        return;
 
     const auto PMONITOR = pWindow->m_monitor.lock();
     if (!PMONITOR)
@@ -112,10 +104,59 @@ void                      onNewWindow(PHLWINDOW pWindow) {
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
 }
 
+static SDispatchResult dispatchSetWindow(std::string window) {
+    Hyprutils::String::CVarList vars(window, 0, ',');
+    PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
+
+    if (!pWindow)
+        return SDispatchResult{.success = false, .error = "Could not find target window"};
+
+    configureWindow(pWindow);
+
+    return SDispatchResult{};
+}
+
+void onNewWindow(PHLWINDOW pWindow) {
+    static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
+    static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
+
+    const std::string  classRule(*PCLASS);
+    const std::string  titleRule(*PTITLE);
+
+    const bool         classMatches = !classRule.empty() && pWindow->m_initialClass == classRule;
+    const bool         titleMatches = !titleRule.empty() && pWindow->m_title == titleRule;
+
+    if (!classMatches && !titleMatches)
+        return;
+
+    configureWindow(pWindow);
+}
+
 void onCloseWindow(PHLWINDOW pWindow) {
     std::erase_if(bgWindows, [pWindow](const auto& ref) { return ref.expired() || ref.lock() == pWindow; });
 
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window {}", pWindow);
+}
+
+static SDispatchResult dispatchFreeWindow(std::string window) {
+    Hyprutils::String::CVarList vars(window, 0, ',');
+    PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
+    
+    for(auto& bg : bgWindows){
+        const auto bgw = bg.lock();
+
+        if (bgw != pWindow && window != "" && window != "all") continue;
+
+        onCloseWindow(bgw);
+
+        bgw->m_hidden = false;
+        bgw->m_pinned = false;
+
+        if (bgw->m_isFloating)
+            g_layoutManager->changeFloatingMode(bgw->layoutTarget());
+    }
+
+    return SDispatchResult{};
 }
 
 void onRenderStage(eRenderStage stage) {
@@ -125,13 +166,13 @@ void onRenderStage(eRenderStage stage) {
     for (auto& bg : bgWindows) {
         const auto bgw = bg.lock();
 
-        if (bgw->m_monitor != g_pHyprOpenGL->m_renderData.pMonitor)
+        if (bgw->m_monitor != g_pHyprRenderer->renderData().pMonitor)
             continue;
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
 
-        g_pHyprRenderer->renderWindow(bgw, g_pHyprOpenGL->m_renderData.pMonitor.lock(), Time::steadyNow(), false, RENDER_PASS_ALL, false, true);
+        g_pHyprRenderer->renderWindow(bgw, g_pHyprRenderer->renderData().pMonitor.lock(), Time::steadyNow(), false, Render::RENDER_PASS_ALL, false, true);
 
         bgw->m_hidden = true;
     }
@@ -150,7 +191,7 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
 
     ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
     if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
+        MON->m_blurFBDirty = true;
 
     PWINDOW->m_hidden = true;
 }
@@ -168,24 +209,25 @@ void onCommit(void* owner, void* data) {
 
     ((origCommit)commitHook->m_original)(owner, data);
     if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        g_pHyprOpenGL->markBlurDirtyForMonitor(MON);
+        MON->m_blurFBDirty = true;
 
     PWINDOW->m_hidden = true;
 }
 
 void onConfigReloaded() {
+    WP<Config::Legacy::CConfigManager> mgr = dynamicPointerCast<Config::Legacy::CConfigManager>(WP<Config::IConfigManager>(Config::mgr()));
     static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
     const std::string  classRule(*PCLASS);
     if (!classRule.empty()) {
-        g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, class:^("} + classRule + ")$");
-        g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, class:^("} + classRule + ")$");
+        mgr->parseKeyword("windowrulev2", std::string{"float, class:^("} + classRule + ")$");
+        mgr->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, class:^("} + classRule + ")$");
     }
 
     static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
     const std::string  titleRule(*PTITLE);
     if (!titleRule.empty()) {
-        g_pConfigManager->parseKeyword("windowrulev2", std::string{"float, title:^("} + titleRule + ")$");
-        g_pConfigManager->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, title:^("} + titleRule + ")$");
+        mgr->parseKeyword("windowrulev2", std::string{"float, title:^("} + titleRule + ")$");
+        mgr->parseKeyword("windowrulev2", std::string{"size 100\% 100\%, title:^("} + titleRule + ")$");
     }
 }
 
@@ -215,6 +257,17 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     if (fns.size() < 1)
         throw std::runtime_error("hyprwinwrap: listener_commitWindow not found");
     commitHook = HyprlandAPI::createFunctionHook(PHANDLE, fns[0].address, (void*)&onCommit);
+
+    bool success = true;
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapsetwindow" , ::dispatchSetWindow );
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapfreewindow", ::dispatchFreeWindow);
+
+    if (success)
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
+    else {
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Failed to register dispatchers.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        throw std::runtime_error("[hyprwinwrap] Dispatchers failed");
+    }
 
     bool hkResult = subsurfaceHook->hook();
     hkResult      = hkResult && commitHook->hook();
