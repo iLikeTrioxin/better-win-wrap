@@ -108,10 +108,12 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     pWindow->layoutTarget()->rememberFloatingSize(newSize);
     pWindow->m_realSize->setValueAndWarp(newSize);
     pWindow->m_realPosition->setValueAndWarp(newPos);
+    pWindow->layoutTarget()->rememberFloatingSize(newSize);
     pWindow->m_size     = newSize;
     pWindow->m_position = newPos;
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
+    pWindow->layoutTarget()->rememberFloatingSize(newSize);
 
     bgWindows.push_back(pWindow);
     pWindow->m_hidden = true;
