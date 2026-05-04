@@ -141,11 +141,11 @@ void onCloseWindow(PHLWINDOW pWindow) {
 static SDispatchResult dispatchFreeWindow(std::string window) {
     Hyprutils::String::CVarList vars(window, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
-
+    
     for(auto& bg : bgWindows){
         const auto bgw = bg.lock();
 
-        if (bgw != pWindow) continue;
+        if (bgw != pWindow && window != "" && window != "all") continue;
 
         onCloseWindow(bgw);
 
