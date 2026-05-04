@@ -104,18 +104,9 @@ static SDispatchResult dispatchSetWindow(std::string window) {
 
     const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))), static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f)))};
 
-    WP<Config::Legacy::CConfigManager> mgr = dynamicPointerCast<Config::Legacy::CConfigManager>(WP<Config::IConfigManager>(Config::mgr()));
-    mgr->parseKeyword("windowrulev2", std::string{"no_focus = true, pid:"} + std::to_string(pWindow->getPID()) + "");
-    //mgr->parseKeyword("windowrulev2", std::string{"no_initial_focus true, pid:"} + pWindow->getPID() + "");
-    pWindow->m_realSize->setValueAndWarp(newSize);
-    pWindow->m_realPosition->setValueAndWarp(newPos);
-    pWindow->m_size     = newSize;
-    pWindow->m_position = newPos;
-    pWindow->layoutTarget()->rememberFloatingSize(newSize);
     const CBox b(newPos.x, newPos.y, newSize.x, newSize.y);
+
     pWindow->layoutTarget()->space()->setTargetGeom(b, pWindow->layoutTarget());
-    pWindow->layoutTarget()->space()->recalculate();
-    pWindow->layoutTarget()->rememberFloatingSize(newSize);
     pWindow->m_realSize->setValueAndWarp(newSize);
     pWindow->m_realPosition->setValueAndWarp(newPos);
     pWindow->m_size     = newSize;
@@ -123,11 +114,11 @@ static SDispatchResult dispatchSetWindow(std::string window) {
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
-    //bgWindows.push_back(pWindow);
-    //pWindow->m_hidden = true;
+    bgWindows.push_back(pWindow);
+    pWindow->m_hidden = true;
 
     g_pInputManager->refocus();
-    //Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
+    Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
 
     return SDispatchResult{};
 }
@@ -209,8 +200,6 @@ void                      onNewWindow(PHLWINDOW pWindow) {
 }
 
 void onCloseWindow(PHLWINDOW pWindow) {
-    WP<Config::Legacy::CConfigManager> mgr = dynamicPointerCast<Config::Legacy::CConfigManager>(WP<Config::IConfigManager>(Config::mgr()));
-    mgr->parseKeyword("windowrulev2", std::string{"no_focus = false, pid:"} + std::to_string(pWindow->getPID()) + "");
     std::erase_if(bgWindows, [pWindow](const auto& ref) { return ref.expired() || ref.lock() == pWindow; });
 
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window {}", pWindow);
