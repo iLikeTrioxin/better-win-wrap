@@ -25,7 +25,6 @@
 using namespace Render;
 using namespace Render::GL;
 
-#include <hyprutils/string/VarList.hpp>
 #include <hyprland/src/layout/space/Space.hpp>
 #include "globals.hpp"
 
@@ -47,7 +46,6 @@ static SP<Desktop::Rule::CWindowRule> makeWindowRule(const std::string& name, co
     auto rule = makeShared<Desktop::Rule::CWindowRule>(name);
     rule->registerMatch(prop, "^(" + match + ")$");
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_FLOAT, "1");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_FOCUS, "1");
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_SIZE, "100% 100%");
     return rule;
 }
@@ -60,11 +58,23 @@ static void clearWindowRules() {
     bgRules.clear();
 }
 
-void configureWindow(PHLWINDOW pWindow){
+void                      onNewWindow(PHLWINDOW pWindow) {
+    static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
+    static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
+
     static auto* const PSIZEX = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x")->getDataStaticPtr();
     static auto* const PSIZEY = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y")->getDataStaticPtr();
     static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
     static auto* const PPOSY  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_y")->getDataStaticPtr();
+
+    const std::string  classRule(*PCLASS);
+    const std::string  titleRule(*PTITLE);
+
+    const bool         classMatches = !classRule.empty() && pWindow->m_initialClass == classRule;
+    const bool         titleMatches = !titleRule.empty() && pWindow->m_title == titleRule;
+
+    if (!classMatches && !titleMatches)
+        return;
 
     const auto PMONITOR = pWindow->m_monitor.lock();
     if (!PMONITOR)
@@ -126,70 +136,10 @@ void configureWindow(PHLWINDOW pWindow){
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
 }
 
-static SDispatchResult dispatchAddWindow(std::string window) {
-    Hyprutils::String::CVarList vars(window, 0, ',');
-    PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
-
-    if (!pWindow)
-        return SDispatchResult{.success = false, .error = "[hyprwinwrap] Could not find target window"};
-
-    configureWindow(pWindow);
-
-    auto rule = makeWindowRule(pWindow->getPID(), Desktop::Rule::RULE_PROP_EXEC_PID, pWindow->getPID());
-    bgRules.emplace_back(rule);
-    Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
-
-    return SDispatchResult{};
-}
-
-void onNewWindow(PHLWINDOW pWindow) {
-    static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
-    static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
-
-    const std::string  classRule(*PCLASS);
-    const std::string  titleRule(*PTITLE);
-
-    const bool         classMatches = !classRule.empty() && pWindow->m_initialClass == classRule;
-    const bool         titleMatches = !titleRule.empty() && pWindow->m_title == titleRule;
-
-    if (!classMatches && !titleMatches)
-        return;
-    
-    configureWindow(pWindow);
-}
-
 void onCloseWindow(PHLWINDOW pWindow) {
     std::erase_if(bgWindows, [pWindow](const auto& ref) { return ref.expired() || ref.lock() == pWindow; });
 
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window {}", pWindow);
-}
-
-static SDispatchResult dispatchFreeWindow(std::string window) {
-    Hyprutils::String::CVarList vars(window, 0, ',');
-    PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
-
-    for(auto& bg : bgWindows){
-        const auto bgw = bg.lock();
-
-        if (bgw != pWindow) continue;
-
-        onCloseWindow(bgw);
-
-        bgw->m_hidden = false;
-        bgw->m_pinned = false;
-
-        std::erase_if(bgRules, [bgw](const auto& rule) {
-            if (rule.name() != std::to_string(bgw->getPID())) return false;
-            Desktop::Rule::ruleEngine()->unregisterRule(rule);
-            return true;
-        });
-
-        if (bgw->m_isFloating)
-            g_layoutManager->changeFloatingMode(bgw->layoutTarget());
-    }
-
-    Desktop::Rule::ruleEngine()->updateAllRules();
-    return SDispatchResult{};
 }
 
 void onRenderStage(eRenderStage stage) {
@@ -302,13 +252,6 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     if (!hkResult)
         throw std::runtime_error("hyprwinwrap: hooks failed");
 
-    bool success = true;
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapSetWindow" , ::dispatchSetWindow );
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapFreeWindow", ::dispatchFreeWindow);
-
-    if (!success)
-        throw std::runtime_error("[hyprwinwrap] Dispatchers registration failed.");
-    
     HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprwinwrap:class", Hyprlang::STRING{"kitty-bg"});
     HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprwinwrap:title", Hyprlang::STRING{""});
 
