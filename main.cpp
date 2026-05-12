@@ -176,7 +176,7 @@ static SDispatchResult dispatchFreeWindow(std::string window) {
     for(auto& bg : bgWindows){
         const auto bgw = bg.lock();
 
-        if (bgw != pWindow) continue;
+        if (bgw != pWindow && window != "" && window != "all") continue;
 
         onCloseWindow(bgw);
 
