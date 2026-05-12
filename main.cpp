@@ -47,6 +47,7 @@ static SP<Desktop::Rule::CWindowRule> makeWindowRule(const std::string& name, co
     auto rule = makeShared<Desktop::Rule::CWindowRule>(name);
     rule->registerMatch(prop, "^(" + match + ")$");
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_FLOAT, "1");
+    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_FOCUS, "1");
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_SIZE, "100% 100%");
     return rule;
 }
