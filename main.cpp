@@ -160,6 +160,11 @@ void onNewWindow(PHLWINDOW pWindow) {
 
 void onCloseWindow(PHLWINDOW pWindow) {
     std::erase_if(bgWindows, [pWindow](const auto& ref) { return ref.expired() || ref.lock() == pWindow; });
+    std::erase_if(bgRules, [pWindow](const auto& rule) {
+        if (rule->name() != std::to_string(pWindow->getPID())) return false;
+        Desktop::Rule::ruleEngine()->unregisterRule(rule);
+        return true;
+    });
 
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window {}", pWindow);
 }
@@ -177,12 +182,6 @@ static SDispatchResult dispatchFreeWindow(std::string window) {
 
         bgw->m_hidden = false;
         bgw->m_pinned = false;
-
-        std::erase_if(bgRules, [bgw](const auto& rule) {
-            if (rule->name() != std::to_string(bgw->getPID())) return false;
-            Desktop::Rule::ruleEngine()->unregisterRule(rule);
-            return true;
-        });
 
         if (bgw->m_isFloating)
             g_layoutManager->changeFloatingMode(bgw->layoutTarget());
