@@ -136,11 +136,12 @@ static SDispatchResult dispatchAddWindow(std::string window) {
     if (!pWindow)
         return SDispatchResult{.success = false, .error = "[hyprwinwrap] Could not find target window"};
 
-    configureWindow(pWindow);
-    
     pWindow->m_ruleApplicator->m_tagKeeper.applyTag("+hyprwinwrap_bg*", true);
     pWindow->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     pWindow->updateDecorationValues();
+    
+    configureWindow(pWindow);
+    
     //auto rule = makeWindowRule(std::to_string(pWindow->getPID()), Desktop::Rule::RULE_PROP_EXEC_PID, std::to_string(pWindow->getPID()));
     //bgRules.emplace_back(rule);
     //Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
