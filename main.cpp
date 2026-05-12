@@ -1,3 +1,4 @@
+#include <hyprland/src/desktop/rule/Rule.hpp>
 #define WLR_USE_UNSTABLE
 
 #include <unistd.h>
@@ -134,10 +135,13 @@ static SDispatchResult dispatchAddWindow(std::string window) {
         return SDispatchResult{.success = false, .error = "[hyprwinwrap] Could not find target window"};
 
     configureWindow(pWindow);
-
-    auto rule = makeWindowRule(std::to_string(pWindow->getPID()), Desktop::Rule::RULE_PROP_EXEC_PID, std::to_string(pWindow->getPID()));
-    bgRules.emplace_back(rule);
-    Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
+    
+    pWindow->m_ruleApplicator->m_tagKeeper.applyTag("+hyprwinwrap_bg*", true);
+    pWindow->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
+    pWindow->updateDecorationValues();
+    //auto rule = makeWindowRule(std::to_string(pWindow->getPID()), Desktop::Rule::RULE_PROP_EXEC_PID, std::to_string(pWindow->getPID()));
+    //bgRules.emplace_back(rule);
+    //Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
 
     return SDispatchResult{};
 }
@@ -160,11 +164,11 @@ void onNewWindow(PHLWINDOW pWindow) {
 
 void onCloseWindow(PHLWINDOW pWindow) {
     std::erase_if(bgWindows, [pWindow](const auto& ref) { return ref.expired() || ref.lock() == pWindow; });
-    std::erase_if(bgRules, [pWindow](const auto& rule) {
-        if (rule->name() != std::to_string(pWindow->getPID())) return false;
-        Desktop::Rule::ruleEngine()->unregisterRule(rule);
-        return true;
-    });
+    //std::erase_if(bgRules, [pWindow](const auto& rule) {
+    //    if (rule->name() != std::to_string(pWindow->getPID())) return false;
+    //    Desktop::Rule::ruleEngine()->unregisterRule(rule);
+    //    return true;
+    //});
 
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window {}", pWindow);
 }
@@ -180,6 +184,9 @@ static SDispatchResult dispatchFreeWindow(std::string window) {
 
         bgw->m_hidden = false;
         bgw->m_pinned = false;
+        bgw->m_ruleApplicator->m_tagKeeper.applyTag("-hyprwinwrap_bg*", true);
+        bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
+        bgw->updateDecorationValues();
 
         if (bgw->m_isFloating) g_layoutManager->changeFloatingMode(bgw->layoutTarget());
 
@@ -263,6 +270,10 @@ void onConfigReloaded() {
         bgRules.emplace_back(rule);
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
     }
+
+    auto rule = makeWindowRule("hyprwinwrap_bg", Desktop::Rule::RULE_PROP_TAG, "hyprwinwrap_bg*");
+    bgRules.emplace_back(rule);
+    Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
 
     Desktop::Rule::ruleEngine()->updateAllRules();
 }
