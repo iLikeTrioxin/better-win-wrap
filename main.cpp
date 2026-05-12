@@ -1,4 +1,3 @@
-#include <string>
 #define WLR_USE_UNSTABLE
 
 #include <unistd.h>
@@ -48,7 +47,6 @@ static SP<Desktop::Rule::CWindowRule> makeWindowRule(const std::string& name, co
     auto rule = makeShared<Desktop::Rule::CWindowRule>(name);
     rule->registerMatch(prop, "^(" + match + ")$");
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_FLOAT, "1");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_FOCUS, "1");
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_SIZE, "100% 100%");
     return rule;
 }
@@ -304,8 +302,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("hyprwinwrap: hooks failed");
 
     bool success = true;
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapAddWindow" , ::dispatchAddWindow );
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapFreeWindow", ::dispatchFreeWindow);
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:hyprwinwrap:addwindow" , ::dispatchAddWindow );
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:hyprwinwrap:freewindow", ::dispatchFreeWindow);
 
     if (!success)
         throw std::runtime_error("[hyprwinwrap] Dispatchers registration failed.");
