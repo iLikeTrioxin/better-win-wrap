@@ -1,3 +1,4 @@
+#include <string>
 #define WLR_USE_UNSTABLE
 
 #include <unistd.h>
@@ -135,9 +136,9 @@ static SDispatchResult dispatchAddWindow(std::string window) {
 
     configureWindow(pWindow);
 
-    auto rule = makeWindowRule(pWindow->getPID(), Desktop::Rule::RULE_PROP_EXEC_PID, pWindow->getPID());
+    auto rule = makeWindowRule(std::to_string(pWindow->getPID()), Desktop::Rule::RULE_PROP_EXEC_PID, std::to_string(pWindow->getPID()));
     bgRules.emplace_back(rule);
-    Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
+    Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
 
     return SDispatchResult{};
 }
