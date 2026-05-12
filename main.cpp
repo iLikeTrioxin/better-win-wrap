@@ -303,7 +303,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("hyprwinwrap: hooks failed");
 
     bool success = true;
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapSetWindow" , ::dispatchSetWindow );
+    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapAddWindow" , ::dispatchAddWindow );
     success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "hyprwinwrapFreeWindow", ::dispatchFreeWindow);
 
     if (!success)
