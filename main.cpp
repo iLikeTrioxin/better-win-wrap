@@ -137,7 +137,7 @@ static SDispatchResult dispatchAddWindow(std::string window) {
 
     auto rule = makeWindowRule(pWindow->getPID(), Desktop::Rule::RULE_PROP_EXEC_PID, pWindow->getPID());
     bgRules.emplace_back(rule);
-    Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
+    Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>(rule));
 
     return SDispatchResult{};
 }
@@ -179,7 +179,7 @@ static SDispatchResult dispatchFreeWindow(std::string window) {
         bgw->m_pinned = false;
 
         std::erase_if(bgRules, [bgw](const auto& rule) {
-            if (rule.name() != std::to_string(bgw->getPID())) return false;
+            if (rule->name() != std::to_string(bgw->getPID())) return false;
             Desktop::Rule::ruleEngine()->unregisterRule(rule);
             return true;
         });
