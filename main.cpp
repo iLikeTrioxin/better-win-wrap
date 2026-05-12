@@ -45,7 +45,7 @@ std::vector<SP<Desktop::Rule::IRule>> bgRules;
 
 static SP<Desktop::Rule::CWindowRule> makeWindowRule(const std::string& name, const Desktop::Rule::eRuleProperty prop, const std::string& match) {
     auto rule = makeShared<Desktop::Rule::CWindowRule>(name);
-    rule->registerMatch(prop, "^(" + match + ")$");
+    rule->registerMatch(prop, match);
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_FLOAT, "1");
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NOINITIALFOCUS, "1");
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_SIZE, "100% 100%");
@@ -181,8 +181,7 @@ static SDispatchResult dispatchFreeWindow(std::string window) {
         bgw->m_hidden = false;
         bgw->m_pinned = false;
 
-        if (bgw->m_isFloating)
-            g_layoutManager->changeFloatingMode(bgw->layoutTarget());
+        if (bgw->m_isFloating) g_layoutManager->changeFloatingMode(bgw->layoutTarget());
 
         onCloseWindow(bgw);
     }
@@ -252,7 +251,7 @@ void onConfigReloaded() {
     static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
     const std::string  classRule(*PCLASS);
     if (!classRule.empty()) {
-        auto rule = makeWindowRule("hyprwinwrap-class", Desktop::Rule::RULE_PROP_CLASS, classRule);
+        auto rule = makeWindowRule("hyprwinwrap-class", Desktop::Rule::RULE_PROP_CLASS, "^("+classRule+")$");
         bgRules.emplace_back(rule);
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
     }
@@ -260,7 +259,7 @@ void onConfigReloaded() {
     static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
     const std::string  titleRule(*PTITLE);
     if (!titleRule.empty()) {
-        auto rule = makeWindowRule("hyprwinwrap-title", Desktop::Rule::RULE_PROP_TITLE, titleRule);
+        auto rule = makeWindowRule("hyprwinwrap-title", Desktop::Rule::RULE_PROP_TITLE, "^("+titleRule+")$");
         bgRules.emplace_back(rule);
         Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
     }
