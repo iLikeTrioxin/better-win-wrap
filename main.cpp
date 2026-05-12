@@ -51,7 +51,7 @@ static SP<Desktop::Rule::CWindowRule> makeWindowRule(const std::string& name, co
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NOINITIALFOCUS, "1");
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_FOCUS, "1");
     rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_ALLOWS_INPUT, "0");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_SIZE, "100% 100%");
+    //rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_SIZE, "100% 100%");
     return rule;
 }
 
