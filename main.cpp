@@ -128,7 +128,7 @@ int addWidget(lua_State* L) {
 
         return lua_tointeger(L, -1);
     };
-    auto getStr = [&](const std::string& name, const std::string& def) -> const char* {
+    auto getStr = [&](const std::string& name, const char* def) -> const char* {
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
         lua_getfield(L, 1, name.c_str());
         
