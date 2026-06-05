@@ -6,11 +6,6 @@
 #include <any>
 #include <sstream>
 
-#include <hyprland/src/includes.hpp>
-#include <hyprland/src/desktop/rule/Rule.hpp>
-#include <hyprland/src/config/lua/bindings/LuaBindingsInternal.hpp>
-#include <hyprland/src/layout/space/Space.hpp>
-
 extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
@@ -18,6 +13,10 @@ extern "C" {
 
 #define private public
 #define protected public
+#include <hyprland/src/includes.hpp>
+#include <hyprland/src/desktop/rule/Rule.hpp>
+#include <hyprland/src/config/lua/bindings/LuaBindingsInternal.hpp>
+#include <hyprland/src/layout/space/Space.hpp>
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/desktop/view/Window.hpp>
 #include <hyprland/src/config/ConfigManager.hpp>
@@ -143,7 +142,7 @@ int addWidget(lua_State* L) {
     widget.position.x = getInt("x");
     widget.position.y = getInt("y");
     widget.size.x     = getInt("w");
-    widget.size.z     = getInt("h");
+    widget.size.y     = getInt("h");
     widget.priority   = getInt("z");
 
     Hyprutils::String::CVarList vars(widget.match, 0, ',');
