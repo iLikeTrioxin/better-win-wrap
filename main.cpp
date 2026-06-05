@@ -55,8 +55,8 @@ public:
     PHLWINDOWREF window = nullptr;
     std::string match;
     std::string tag;
-    Vector2D position;
-    Vector2D size;
+    Vector2D position = {0, 0};
+    Vector2D size = {100, 100};
 };
 
 std::vector<Widget> widgets;
@@ -112,49 +112,42 @@ void configureWidget(Widget widget){
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg");
 }
 
-int addWidget(lua_State* L) {
-    if (!lua_istable(L, 1))
-        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: expected a table { match, tag, x, y, w, h, z }");
+// args: "match;tag;x;y;w;h;z"
+SDispatchResult addWidget(const std::string& packedArg) {
+    std::vector<std::string> args = { "" };
+    args.reserve(6);
+    for(int i=0;i<packedArg.size();i++){
+        if(packedArg[i] == ';') { args.emplace_back(); continue; }
+        args[args.size()-1] = packedArg[i];
+    }
 
-    auto getInt = [&](const std::string& name) -> lua_Integer{
-        Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
-        lua_getfield(L, 1, name.c_str());
-        
-        if (!lua_isinteger(L, -1)){
-            Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be an integer");
-            return -1;
-        }
-
-        return lua_tointeger(L, -1);
-    };
-    auto getStr = [&](const std::string& name) -> const char* {
-        Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
-        lua_getfield(L, 1, name.c_str());
-        
-        if (!lua_isstring(L, -1)) {
-            Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be a class string");
-            return "";
-        }
-        
-        return lua_tostring(L, -1);
+    auto argPos = [&](int i, const std::string& def){
+        if (args.size() <= i) return def;
+        if (args[i] == "") return def;
+        return args[i];
     };
 
     Widget widget;
 
-    widget.match      = getStr("match");
-    widget.tag        = getStr("tag");
-    widget.position.x = getInt("x");
-    widget.position.y = getInt("y");
-    widget.size.x     = getInt("w");
-    widget.size.y     = getInt("h");
-    widget.priority   = getInt("z");
+    widget.match      = argPos(0, "active");
+    widget.tag        = argPos(1, "hyprwidget*");
+
+    try{
+        widget.position.x = stoi(argPos(2, "0"));
+        widget.position.y = stoi(argPos(3, "0"));
+        widget.size.x     = stoi(argPos(4, "100"));
+        widget.size.y     = stoi(argPos(5, "100"));
+        widget.priority   = stoi(argPos(6, "0"));
+    } catch (...){}
 
     Hyprutils::String::CVarList vars(widget.match, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
 
     if (!pWindow){
-        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any window to '" + widget.match + "' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-        throw std::runtime_error("[hyprwinwrap] Could not match any window.");
+        return SDispatchResult{
+            .success = false,
+            .error = "[hyprwinwrap] Could not find target window"
+        };
     }
 
     pWindow->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
@@ -166,7 +159,7 @@ int addWidget(lua_State* L) {
         return a.priority < b.priority;
     });
 
-    return 0;
+    return SDispatchResult{};
 }
 
 void onCloseWindow(PHLWINDOW pWindow) {
@@ -182,17 +175,7 @@ void onCloseWindow(PHLWINDOW pWindow) {
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window");
 }
 
-int removeWidget(lua_State* L) {
-    if (!lua_istable(L, 1))
-        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: expected a table { match }");
-
-    Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
-    lua_getfield(L, 1, "match");
-    
-    if (!lua_isstring(L, -1))
-        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: 'match' must be a class string");
-
-    std::string match(lua_tostring(L, -1));
+SDispatchResult removeWidget(const std::string& match) {
     Hyprutils::String::CVarList vars(match, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
 
@@ -214,7 +197,7 @@ int removeWidget(lua_State* L) {
 
     Desktop::Rule::ruleEngine()->updateAllRules();
 
-    return 0;
+    return SDispatchResult{};
 }
 
 void onRenderStage(eRenderStage stage) {
@@ -299,8 +282,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }
 
     if (Config::mgr()->type() == Config::CONFIG_LUA) {
-        HyprlandAPI::addLuaFunction(PHANDLE, "hyprwidgets", "add_widget", ::addWidget);
-        HyprlandAPI::addLuaFunction(PHANDLE, "hyprwidgets", "remove_widget", ::removeWidget);
+        HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:hyprwidgets:addwidget", ::addWidget);
+        HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:hyprwidgets:removewidget", ::removeWidget);
     } else {
         HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Failure in initialization: Legacy config not supported, please use lua.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
         throw std::runtime_error("[hww] Config type not supported, please use lua.");
@@ -331,19 +314,5 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 }
 
 APICALL EXPORT void PLUGIN_EXIT() {
-    for(auto& widget : widgets){
-        const auto bgw = widget.window.lock();
-
-        bgw->m_hidden = false;
-        bgw->m_pinned = false;
-        bgw->m_ruleApplicator->m_tagKeeper.applyTag("-" + widget.tag, true);
-        bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
-        bgw->updateDecorationValues();
-
-        if (bgw->m_isFloating) g_layoutManager->changeFloatingMode(bgw->layoutTarget());
-
-        onCloseWindow(bgw);
-    }
-
-    Desktop::Rule::ruleEngine()->updateAllRules();
+    removeWidget("all");
 }
