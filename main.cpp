@@ -162,13 +162,11 @@ int addWidget(lua_State* L) {
     pWindow->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     pWindow->updateDecorationValues();
    
-    return 0;
     widget.window = pWindow;
     configureWidget(widget);
     std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
         return a.priority < b.priority;
     });
-        throw std::runtime_error("[hyprwinwrap] Could not match any window.");
 
     return 0;
 }
