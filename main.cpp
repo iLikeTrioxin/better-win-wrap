@@ -158,11 +158,11 @@ int addWidget(lua_State* L) {
         return 0;
     }
 
-    return 0;
     pWindow->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
     pWindow->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     pWindow->updateDecorationValues();
    
+    return 0;
     widget.window = pWindow;
     configureWidget(widget);
     std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
