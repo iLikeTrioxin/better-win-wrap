@@ -61,7 +61,7 @@ public:
 
 std::vector<Widget> widgets;
 
-void configureWidget(Widget widget){
+void configureWidget(const Widget& widget){
     const auto PMONITOR = widget.window->m_monitor.lock();
     if (!PMONITOR)
         return;
@@ -116,24 +116,25 @@ int addWidget(lua_State* L) {
     if (!lua_istable(L, 1))
         return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: expected a table { match, tag, x, y, w, h, z }");
 
-    auto getInt = [&](const std::string& name) -> lua_Integer{
+    Log::logger->log(Log::DEBUG, "ENTER NOW HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+    auto getInt = [&](const std::string& name , int def) -> lua_Integer{
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
         lua_getfield(L, 1, name.c_str());
         
         if (!lua_isinteger(L, -1)){
             Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be an integer");
-            return -1;
+            return def;
         }
 
         return lua_tointeger(L, -1);
     };
-    auto getStr = [&](const std::string& name) -> const char* {
+    auto getStr = [&](const std::string& name, const std::string& def) -> const char* {
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
         lua_getfield(L, 1, name.c_str());
         
         if (!lua_isstring(L, -1)) {
             Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be a class string");
-            return "";
+            return def;
         }
         
         return lua_tostring(L, -1);
@@ -141,30 +142,32 @@ int addWidget(lua_State* L) {
 
     Widget widget;
 
-    widget.match      = getStr("match");
-    widget.tag        = getStr("tag");
-    widget.position.x = getInt("x");
-    widget.position.y = getInt("y");
-    widget.size.x     = getInt("w");
-    widget.size.y     = getInt("h");
-    widget.priority   = getInt("z");
+    widget.match      = getStr("match", "active");
+    widget.tag        = getStr("tag", "hyprwidget");
+    widget.position.x = getInt("x", 0);
+    widget.position.y = getInt("y", 0);
+    widget.size.x     = getInt("w", 100);
+    widget.size.y     = getInt("h", 100);
+    widget.priority   = getInt("z", 0);
 
     Hyprutils::String::CVarList vars(widget.match, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
 
     if (!pWindow){
         HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any window to '" + widget.match + "' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-        throw std::runtime_error("[hyprwinwrap] Could not match any window.");
+        return 0;
     }
 
     pWindow->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
     pWindow->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     pWindow->updateDecorationValues();
-    
+   
+    widget.window = pWindow;
     configureWidget(widget);
     std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
         return a.priority < b.priority;
     });
+        throw std::runtime_error("[hyprwinwrap] Could not match any window.");
 
     return 0;
 }
@@ -186,13 +189,17 @@ int removeWidget(lua_State* L) {
     if (!lua_istable(L, 1))
         return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: expected a table { match }");
 
-    Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
-    lua_getfield(L, 1, "match");
+    std::string match;
+    {
+        Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
+        lua_getfield(L, 1, "match");
     
-    if (!lua_isstring(L, -1))
-        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: 'match' must be a class string");
+        if (!lua_isstring(L, -1))
+            return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: 'match' must be a class string");
 
-    std::string match(lua_tostring(L, -1));
+        match = lua_tostring(L, -1);
+    }
+
     Hyprutils::String::CVarList vars(match, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
 
