@@ -89,16 +89,16 @@ void configureWidget(Widget widget){
 
     const CBox b(newPos.x, newPos.y, newSize.x, newSize.y);
 
-    pWindow->layoutTarget()->space()->setTargetGeom(b, pWindow->layoutTarget());
-    pWindow->m_realSize->setValueAndWarp(newSize);
-    pWindow->m_realPosition->setValueAndWarp(newPos);
-    pWindow->m_size     = newSize;
-    pWindow->m_position = newPos;
-    pWindow->m_pinned   = true;
-    pWindow->sendWindowSize(true);
+    widget.window->layoutTarget()->space()->setTargetGeom(b, widget.window->layoutTarget());
+    widget.window->m_realSize->setValueAndWarp(newSize);
+    widget.window->m_realPosition->setValueAndWarp(newPos);
+    widget.window->m_size     = newSize;
+    widget.window->m_position = newPos;
+    widget.window->m_pinned   = true;
+    widget.window->sendWindowSize(true);
+    widget.window->m_hidden = true;
 
     widgets.push_back(widget);
-    pWindow->m_hidden = true;
 
     g_pInputManager->refocus();
     Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg");
@@ -127,7 +127,7 @@ int addWidget(lua_State* L) {
         return lua_tostring(L, -1);
     }
 
-    WWidget widget;
+    Widget widget;
 
     widget.match      = getStr("match");
     widget.tag        = getStr("tag");
@@ -137,7 +137,7 @@ int addWidget(lua_State* L) {
     widget.size.z     = getInt("h");
     widget.priority   = getInt("z");
 
-    Hyprutils::String::CVarList vars(window, 0, ',');
+    Hyprutils::String::CVarList vars(widget.match, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
 
     if (!pWindow){
@@ -151,18 +151,15 @@ int addWidget(lua_State* L) {
     
     configureWidget(widget);
     std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
-        return a.prioritstd::sort(vec.begin(), vec.end(),
-    [](const Obj& a, const Obj& b) {
-        return a.x < b.x;
-    });y < b.priority;
+        return a.priority < b.priority;
     });
 
     return 0;
 }
 
-void onCloseWindow(const Widget& widget) {
-    std::erase_if(widgets, [widget](const auto& ref) {
-        return ref.window.expired() || ref.window.lock() == widget.window;
+void onCloseWindow(PHLWINDOW pWindow) {
+    std::erase_if(widgets, [pWindow](const auto& ref) {
+        return ref.window.expired() || ref.window.lock() == pWindow;
     });
     //std::erase_if(bgRules, [pWindow](const auto& rule) {
     //    if (rule->name() != std::to_string(pWindow->getPID())) return false;
@@ -259,7 +256,7 @@ void onCommit(void* owner, void* data) {
     const auto PWINDOW = ((Desktop::View::CWindow*)owner)->m_self.lock();
     
     const auto& widget = std::find_if(widgets.begin(), widgets.end(), [PWINDOW](const auto& ref) {
-        return ref.lock() == PWINDOW;
+        return ref.window.lock() == PWINDOW;
     });
 
     if (widget == widgets.end()) {
@@ -322,5 +319,19 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 }
 
 APICALL EXPORT void PLUGIN_EXIT() {
-    clearWindowRules();
+    for(auto& widget : widgets){
+        const auto bgw = widget.window.lock();
+
+        bgw->m_hidden = false;
+        bgw->m_pinned = false;
+        bgw->m_ruleApplicator->m_tagKeeper.applyTag("-" + widget.tag, true);
+        bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
+        bgw->updateDecorationValues();
+
+        if (bgw->m_isFloating) g_layoutManager->changeFloatingMode(bgw->layoutTarget());
+
+        onCloseWindow(bgw);
+    }
+
+    Desktop::Rule::ruleEngine()->updateAllRules();
 }
