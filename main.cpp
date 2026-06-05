@@ -1,12 +1,20 @@
-#include <hyprland/src/desktop/rule/Rule.hpp>
 #define WLR_USE_UNSTABLE
 
 #include <unistd.h>
 #include <vector>
 
-#include <hyprland/src/includes.hpp>
 #include <any>
 #include <sstream>
+
+#include <hyprland/src/includes.hpp>
+#include <hyprland/src/desktop/rule/Rule.hpp>
+#include <hyprland/src/config/lua/bindings/LuaBindingsInternal.hpp>
+#include <hyprland/src/layout/space/Space.hpp>
+
+extern "C" {
+#include <lua.h>
+#include <lauxlib.h>
+}
 
 #define private public
 #define protected public
@@ -27,7 +35,8 @@ using namespace Render;
 using namespace Render::GL;
 
 #include <hyprutils/string/VarList.hpp>
-#include <hyprland/src/layout/space/Space.hpp>
+#include <hyprutils/string/ConstVarList.hpp>
+
 #include "globals.hpp"
 
 // Do NOT change this function
@@ -116,7 +125,7 @@ int addWidget(lua_State* L) {
             return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be an integer");
 
         return lua_tointeger(L, -1);
-    }
+    };
     auto getStr = [&](const std::string& name) -> const char* {
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
         lua_getfield(L, 1, name.c_str());
@@ -125,7 +134,7 @@ int addWidget(lua_State* L) {
             return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be a class string");
 
         return lua_tostring(L, -1);
-    }
+    };
 
     Widget widget;
 
