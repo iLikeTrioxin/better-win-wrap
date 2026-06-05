@@ -120,8 +120,10 @@ int addWidget(lua_State* L) {
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
         lua_getfield(L, 1, name.c_str());
         
-        if (!lua_isinteger(L, -1))
-            return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be an integer");
+        if (!lua_isinteger(L, -1)){
+            Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be an integer");
+            return -1;
+        }
 
         return lua_tointeger(L, -1);
     };
@@ -129,9 +131,11 @@ int addWidget(lua_State* L) {
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
         lua_getfield(L, 1, name.c_str());
         
-        if (!lua_isstring(L, -1))
-            return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be a class string");
-
+        if (!lua_isstring(L, -1)) {
+            Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be a class string");
+            return "";
+        }
+        
         return lua_tostring(L, -1);
     };
 
