@@ -41,56 +41,30 @@ inline CFunctionHook* commitHook     = nullptr;
 typedef void (*origCommitSubsurface)(Desktop::View::CSubsurface* thisptr);
 typedef void (*origCommit)(void* owner, void* data);
 
-std::vector<PHLWINDOWREF> bgWindows;
-std::vector<SP<Desktop::Rule::IRule>> bgRules;
+class Widget{
+public:
+    int priority = 0;
+    PHLWINDOWREF window = nullptr;
+    std::string match;
+    std::string tag;
+    Vector2D position;
+    Vector2D size;
+};
 
-static SP<Desktop::Rule::CWindowRule> makeWindowRule(const std::string& name, const Desktop::Rule::eRuleProperty prop, const std::string& match) {
-    auto rule = makeShared<Desktop::Rule::CWindowRule>(name);
-    rule->registerMatch(prop, match);
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_FLOAT, "1");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NOINITIALFOCUS, "1");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_FOCUS, "1");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_ALLOWS_INPUT, "0");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_BORDER_SIZE, "0");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_SIZE, "100% 100%");
-    return rule;
-}
+std::vector<Widget> widgets;
 
-static void clearWindowRules() {
-    for (auto& rule : bgRules) {
-        if (rule)
-            Desktop::Rule::ruleEngine()->unregisterRule(rule);
-    }
-    bgRules.clear();
-}
-
-void configureWindow(PHLWINDOW pWindow){
-    static auto* const PSIZEX = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x")->getDataStaticPtr();
-    static auto* const PSIZEY = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y")->getDataStaticPtr();
-    static auto* const PPOSX  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x")->getDataStaticPtr();
-    static auto* const PPOSY  = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_y")->getDataStaticPtr();
-
-    const auto PMONITOR = pWindow->m_monitor.lock();
+void configureWidget(Widget widget){
+    const auto PMONITOR = widget.window->m_monitor.lock();
     if (!PMONITOR)
         return;
 
-    if (!pWindow->m_isFloating)
-        g_layoutManager->changeFloatingMode(pWindow->layoutTarget());
+    if (!widget.window->m_isFloating)
+        g_layoutManager->changeFloatingMode(widget.window->layoutTarget());
 
-    float sx = 100.f, sy = 100.f, px = 0.f, py = 0.f;
-
-    try {
-        sx = std::stof(*PSIZEX);
-    } catch (...) {}
-    try {
-        sy = std::stof(*PSIZEY);
-    } catch (...) {}
-    try {
-        px = std::stof(*PPOSX);
-    } catch (...) {}
-    try {
-        py = std::stof(*PPOSY);
-    } catch (...) {}
+    float sx = widget.size.x;
+    float sy = widget.size.y;
+    float px = widget.position.x;
+    float py = widget.position.y;
 
     sx = std::clamp(sx, 1.f, 100.f);
     sy = std::clamp(sy, 1.f, 100.f);
@@ -123,72 +97,104 @@ void configureWindow(PHLWINDOW pWindow){
     pWindow->m_pinned   = true;
     pWindow->sendWindowSize(true);
 
-    bgWindows.push_back(pWindow);
+    widgets.push_back(widget);
     pWindow->m_hidden = true;
 
     g_pInputManager->refocus();
-    Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg {}", pWindow);
+    Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg");
 }
 
-static SDispatchResult dispatchAddWindow(std::string window) {
+int addWidget(lua_State* L) {
+    if (!lua_istable(L, 1))
+        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: expected a table { match, tag, x, y, w, h, z }");
+
+    auto getInt = [&](const std::string& name) -> lua_Integer{
+        Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
+        lua_getfield(L, 1, name.c_str());
+        
+        if (!lua_isinteger(L, -1))
+            return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be an integer");
+
+        return lua_tointeger(L, -1);
+    }
+    auto getStr = [&](const std::string& name) -> const char* {
+        Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
+        lua_getfield(L, 1, name.c_str());
+        
+        if (!lua_isstring(L, -1))
+            return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be a class string");
+
+        return lua_tostring(L, -1);
+    }
+
+    WWidget widget;
+
+    widget.match      = getStr("match");
+    widget.tag        = getStr("tag");
+    widget.position.x = getInt("x");
+    widget.position.y = getInt("y");
+    widget.size.x     = getInt("w");
+    widget.size.z     = getInt("h");
+    widget.priority   = getInt("z");
+
     Hyprutils::String::CVarList vars(window, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
 
-    if (!pWindow)
-        return SDispatchResult{.success = false, .error = "[hyprwinwrap] Could not find target window"};
+    if (!pWindow){
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any window to '" + widget.match + "' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        throw std::runtime_error("[hyprwinwrap] Could not match any window.");
+    }
 
-    pWindow->m_ruleApplicator->m_tagKeeper.applyTag("+hyprwinwrap_bg*", true);
+    pWindow->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
     pWindow->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     pWindow->updateDecorationValues();
     
-    configureWindow(pWindow);
-    
-    //auto rule = makeWindowRule(std::to_string(pWindow->getPID()), Desktop::Rule::RULE_PROP_EXEC_PID, std::to_string(pWindow->getPID()));
-    //bgRules.emplace_back(rule);
-    //Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
+    configureWidget(widget);
+    std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
+        return a.prioritstd::sort(vec.begin(), vec.end(),
+    [](const Obj& a, const Obj& b) {
+        return a.x < b.x;
+    });y < b.priority;
+    });
 
-    return SDispatchResult{};
+    return 0;
 }
 
-void onNewWindow(PHLWINDOW pWindow) {
-    static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
-    static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
-
-    const std::string  classRule(*PCLASS);
-    const std::string  titleRule(*PTITLE);
-
-    const bool         classMatches = !classRule.empty() && pWindow->m_initialClass == classRule;
-    const bool         titleMatches = !titleRule.empty() && pWindow->m_title == titleRule;
-
-    if (!classMatches && !titleMatches)
-        return;
-    
-    configureWindow(pWindow);
-}
-
-void onCloseWindow(PHLWINDOW pWindow) {
-    std::erase_if(bgWindows, [pWindow](const auto& ref) { return ref.expired() || ref.lock() == pWindow; });
+void onCloseWindow(const Widget& widget) {
+    std::erase_if(widgets, [widget](const auto& ref) {
+        return ref.window.expired() || ref.window.lock() == widget.window;
+    });
     //std::erase_if(bgRules, [pWindow](const auto& rule) {
     //    if (rule->name() != std::to_string(pWindow->getPID())) return false;
     //    Desktop::Rule::ruleEngine()->unregisterRule(rule);
     //    return true;
     //});
 
-    Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window {}", pWindow);
+    Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window");
 }
 
-static SDispatchResult dispatchFreeWindow(std::string window) {
-    Hyprutils::String::CVarList vars(window, 0, ',');
+int removeWidget(lua_State* L) {
+    if (!lua_istable(L, 1))
+        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: expected a table { match }");
+
+    Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
+    lua_getfield(L, 1, "match");
+    
+    if (!lua_isstring(L, -1))
+        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: 'match' must be a class string");
+
+    std::string match(lua_tostring(L, -1));
+    Hyprutils::String::CVarList vars(match, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
 
-    for(auto& bg : bgWindows){
-        const auto bgw = bg.lock();
+    for(auto& widget : widgets){
+        const auto bgw = widget.window.lock();
 
-        if (bgw != pWindow && window != "" && window != "all") continue;
+        if (bgw != pWindow && match != "" && match != "all") continue;
 
         bgw->m_hidden = false;
         bgw->m_pinned = false;
-        bgw->m_ruleApplicator->m_tagKeeper.applyTag("-hyprwinwrap_bg*", true);
+        bgw->m_ruleApplicator->m_tagKeeper.applyTag("-" + widget.tag, true);
         bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
         bgw->updateDecorationValues();
 
@@ -198,15 +204,16 @@ static SDispatchResult dispatchFreeWindow(std::string window) {
     }
 
     Desktop::Rule::ruleEngine()->updateAllRules();
-    return SDispatchResult{};
+
+    return 0;
 }
 
 void onRenderStage(eRenderStage stage) {
     if (stage != RENDER_POST_WALLPAPER)
         return;
 
-    for (auto& bg : bgWindows) {
-        const auto bgw = bg.lock();
+    for (auto& widget : widgets) {
+        const auto bgw = widget.window.lock();
 
         if (bgw->m_monitor != g_pHyprRenderer->m_renderData.pMonitor)
             continue;
@@ -223,7 +230,17 @@ void onRenderStage(eRenderStage stage) {
 void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
     const auto PWINDOW = Desktop::View::CWindow::fromView(thisptr->wlSurface()->view());
 
-    if (!PWINDOW || std::find_if(bgWindows.begin(), bgWindows.end(), [PWINDOW](const auto& ref) { return ref.lock() == PWINDOW; }) == bgWindows.end()) {
+    if(!PWINDOW){
+        ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
+        return;
+
+    }
+
+    const auto& widget = std::find_if(widgets.begin(), widgets.end(), [PWINDOW](const auto& ref) {
+        return ref.window.lock() == PWINDOW;
+    });
+
+    if (widget == widgets.end()) {
         ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
         return;
     }
@@ -240,8 +257,12 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
 
 void onCommit(void* owner, void* data) {
     const auto PWINDOW = ((Desktop::View::CWindow*)owner)->m_self.lock();
+    
+    const auto& widget = std::find_if(widgets.begin(), widgets.end(), [PWINDOW](const auto& ref) {
+        return ref.lock() == PWINDOW;
+    });
 
-    if (std::find_if(bgWindows.begin(), bgWindows.end(), [PWINDOW](const auto& ref) { return ref.lock() == PWINDOW; }) == bgWindows.end()) {
+    if (widget == widgets.end()) {
         ((origCommit)commitHook->m_original)(owner, data);
         return;
     }
@@ -256,32 +277,6 @@ void onCommit(void* owner, void* data) {
     PWINDOW->m_hidden = true;
 }
 
-void onConfigReloaded() {
-    clearWindowRules();
-
-    static auto* const PCLASS = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:class")->getDataStaticPtr();
-    const std::string  classRule(*PCLASS);
-    if (!classRule.empty()) {
-        auto rule = makeWindowRule("hyprwinwrap-class", Desktop::Rule::RULE_PROP_CLASS, "^("+classRule+")$");
-        bgRules.emplace_back(rule);
-        Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
-    }
-
-    static auto* const PTITLE = (Hyprlang::STRING const*)HyprlandAPI::getConfigValue(PHANDLE, "plugin:hyprwinwrap:title")->getDataStaticPtr();
-    const std::string  titleRule(*PTITLE);
-    if (!titleRule.empty()) {
-        auto rule = makeWindowRule("hyprwinwrap-title", Desktop::Rule::RULE_PROP_TITLE, "^("+titleRule+")$");
-        bgRules.emplace_back(rule);
-        Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
-    }
-
-    auto rule = makeWindowRule("hyprwinwrap_bg", Desktop::Rule::RULE_PROP_TAG, "hyprwinwrap_bg*");
-    bgRules.emplace_back(rule);
-    Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
-
-    Desktop::Rule::ruleEngine()->updateAllRules();
-}
-
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     PHANDLE = handle;
 
@@ -294,10 +289,16 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("[hww] Version mismatch");
     }
 
-    static auto P  = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onNewWindow(w); });
+    if (Config::mgr()->type() == Config::CONFIG_LUA) {
+        HyprlandAPI::addLuaFunction(PHANDLE, "hyprwidgets", "add_widget", ::addWidget);
+        HyprlandAPI::addLuaFunction(PHANDLE, "hyprwidgets", "remove_widget", ::removeWidget);
+    } else {
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Failure in initialization: Legacy config not supported, please use lua.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        throw std::runtime_error("[hww] Config type not supported, please use lua.");
+    }
+
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
     static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
-    static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReloaded(); });
 
     auto fns = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN7Desktop4View11CSubsurface8onCommitEv");
     if (fns.size() < 1)
@@ -314,23 +315,6 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 
     if (!hkResult)
         throw std::runtime_error("hyprwinwrap: hooks failed");
-
-    bool success = true;
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:hyprwinwrap:addwindow" , ::dispatchAddWindow );
-    success = success && HyprlandAPI::addDispatcherV2(PHANDLE, "plugin:hyprwinwrap:freewindow", ::dispatchFreeWindow);
-
-    if (!success)
-        throw std::runtime_error("[hyprwinwrap] Dispatchers registration failed.");
-    
-    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprwinwrap:class", Hyprlang::STRING{"kitty-bg"});
-    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprwinwrap:title", Hyprlang::STRING{""});
-
-    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprwinwrap:size_x", Hyprlang::STRING{"100"});
-    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprwinwrap:size_y", Hyprlang::STRING{"100"});
-    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_x", Hyprlang::STRING{"0"});
-    HyprlandAPI::addConfigValue(PHANDLE, "plugin:hyprwinwrap:pos_y", Hyprlang::STRING{"0"});
-
-    onConfigReloaded();
 
     HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
 
