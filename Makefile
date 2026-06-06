@@ -5,7 +5,7 @@ else
     EXTRA_FLAGS =
 endif
 
-CXXFLAGS ?= -g -O0
+CXXFLAGS ?= -O2
 CXXFLAGS += -shared -fPIC -std=c++2b
 
 all:

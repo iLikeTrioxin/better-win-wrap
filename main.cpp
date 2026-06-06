@@ -229,7 +229,7 @@ int removeWidget(lua_State* L) {
 
     return 0;
 }
-l for as
+
 void onRenderStage(eRenderStage stage) {
     if (stage != RENDER_POST_WALLPAPER)
         return;
