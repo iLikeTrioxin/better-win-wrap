@@ -157,13 +157,13 @@ int addWidget(lua_State* L) {
     const auto PMONITOR = widget.window->m_monitor.lock();
     const auto& box = widget.window->layoutTarget()->position();
     if(widget.position.x < 0 || widget.position.y < 0){
-        widget.position.x = box.x / PMONITOR->m_size.x;
-        widget.position.y = box.y / PMONITOR->m_size.y;
+        widget.position.x = (box.x*100) / PMONITOR->m_size.x;
+        widget.position.y = (box.y*100) / PMONITOR->m_size.y;
     }
 
     if(widget.size.x < 0 || widget.size.y < 0){
-        widget.size.x = box.w / PMONITOR->m_size.x;
-        widget.size.y = box.h / PMONITOR->m_size.y;
+        widget.size.x = (box.w*100) / PMONITOR->m_size.x;
+        widget.size.y = (box.h*100) / PMONITOR->m_size.y;
     }
 
     HyprlandAPI::addNotification(PHANDLE, "[hw] x: " + std::to_string(widget.position.x) + ", y: " + std::to_string(widget.position.y) + ", w: " + std::to_string(widget.size.x) + ", h" + std::to_string(widget.size.y) + "ok", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
