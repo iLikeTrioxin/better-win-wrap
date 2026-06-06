@@ -154,11 +154,16 @@ int addWidget(lua_State* L) {
     widget.priority   = getInt("z", -1);
 
     // if negative values are set use the window current position/size
-    if(widget.position.x < 0 || widget.position.y < 0)
-        widget.position = widget.window->m_realPosition->goal();
+    const auto& box = widget.window->layoutTarget()->position();
+    if(widget.position.x < 0 || widget.position.y < 0){
+        widget.position.x = box.x;
+        widget.position.y = box.y;
+    }
 
-    if(widget.size.x < 0 || widget.size.y < 0)
-        widget.size = widget.window->m_realSize->goal();
+    if(widget.size.x < 0 || widget.size.y < 0){
+        widget.size.x = box.w;
+        widget.size.y = box.h;
+    }
 
     widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
     widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
