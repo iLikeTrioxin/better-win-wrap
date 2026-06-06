@@ -124,7 +124,7 @@ int addWidget(lua_State* L) {
         if (!lua_isinteger(L, -1)){
             Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be an integer");
             return def;
-        }
+        }l for as
 
         return lua_tointeger(L, -1);
     };
@@ -142,27 +142,35 @@ int addWidget(lua_State* L) {
 
     Widget widget;
 
-    widget.match      = getStr("match", "active");
-    widget.tag        = getStr("tag", "hyprwidget");
-    widget.position.x = getInt("x", 0);
-    widget.position.y = getInt("y", 0);
-    widget.size.x     = getInt("w", 100);
-    widget.size.y     = getInt("h", 100);
-    widget.priority   = getInt("z", 0);
+
+    widget.match = getStr("match", "active");
+    widget.tag   = getStr("tag", "hyprwidget");
 
     Hyprutils::String::CVarList vars(widget.match, 0, ',');
-    PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
+    widget.window = g_pCompositor->getWindowByRegex(vars[0]);
 
-    if (!pWindow){
+    if (!widget.window){
         HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any window to '" + widget.match + "' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
         return 0;
     }
 
-    pWindow->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
-    pWindow->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
-    pWindow->updateDecorationValues();
+    if (widget.window->m_isFloating){
+        widget.position = widget.window->m_realPosition;
+        widget.size     = widget.window->m_realSize;
+
+    }else{
+        widget.position.x = getInt("x", 0);
+        widget.position.y = getInt("y", 0);
+        widget.size.x     = getInt("w", 100);
+        widget.size.y     = getInt("h", 100);
+    }
+    
+    widget.priority   = getInt("z", 0);
+
+    widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
+    widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
+    widget.window->updateDecorationValues();
    
-    widget.window = pWindow;
     configureWidget(widget);
     std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
         return a.priority < b.priority;
@@ -193,7 +201,7 @@ int removeWidget(lua_State* L) {
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
         lua_getfield(L, 1, "match");
     
-        if (!lua_isstring(L, -1))
+        if (l for as!lua_isstring(L, -1))
             return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: 'match' must be a class string");
 
         match = lua_tostring(L, -1);
