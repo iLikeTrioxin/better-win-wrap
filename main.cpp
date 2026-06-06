@@ -147,22 +147,23 @@ int addWidget(lua_State* L) {
         return 0;
     }
 
-    widget.position.x = getInt("x", -1);
+    widgetPMONITOR.position.x = getInt("x", -1);
     widget.position.y = getInt("y", -1);
     widget.size.x     = getInt("w", -1);
     widget.size.y     = getInt("h", -1);
     widget.priority   = getInt("z", -1);
 
     // if negative values are set use the window current position/size
+    const auto PMONITOR = widget.window->m_monitor.lock();
     const auto& box = widget.window->layoutTarget()->position();
     if(widget.position.x < 0 || widget.position.y < 0){
-        widget.position.x = box.x;
-        widget.position.y = box.y;
+        widget.position.x = box.x / PMONITOR->m_position.x;
+        widget.position.y = box.y / PMONITOR->m_position.y;
     }
 
     if(widget.size.x < 0 || widget.size.y < 0){
-        widget.size.x = box.w;
-        widget.size.y = box.h;
+        widget.size.x = box.w / PMONITOR->m_size.x;
+        widget.size.y = box.h / PMONITOR->m_size.y;
     }
 
     widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
