@@ -124,7 +124,7 @@ int addWidget(lua_State* L) {
         if (!lua_isinteger(L, -1)){
             Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: '" + name + "' must be an integer");
             return def;
-        }l for as
+        }
 
         return lua_tointeger(L, -1);
     };
@@ -142,7 +142,6 @@ int addWidget(lua_State* L) {
 
     Widget widget;
 
-
     widget.match = getStr("match", "active");
     widget.tag   = getStr("tag", "hyprwidget");
 
@@ -154,18 +153,18 @@ int addWidget(lua_State* L) {
         return 0;
     }
 
-    if (widget.window->m_isFloating){
-        widget.position = widget.window->m_realPosition;
-        widget.size     = widget.window->m_realSize;
+    widget.position.x = getInt("x", -1);
+    widget.position.y = getInt("y", -1);
+    widget.size.x     = getInt("w", -1);
+    widget.size.y     = getInt("h", -1);
+    widget.priority   = getInt("z", -1);
 
-    }else{
-        widget.position.x = getInt("x", 0);
-        widget.position.y = getInt("y", 0);
-        widget.size.x     = getInt("w", 100);
-        widget.size.y     = getInt("h", 100);
-    }
-    
-    widget.priority   = getInt("z", 0);
+    // if negative values are set use the window current position/size
+    if(widget.position.x < 0 || widget.position.y < 0)
+        widget.position = widget.window->m_position;
+
+    if(widget.size.x < 0 || widget.size.y < 0)
+        widget.size     = widget.window->m_size;
 
     widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
     widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
@@ -201,7 +200,7 @@ int removeWidget(lua_State* L) {
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
         lua_getfield(L, 1, "match");
     
-        if (l for as!lua_isstring(L, -1))
+        if (!lua_isstring(L, -1))
             return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: 'match' must be a class string");
 
         match = lua_tostring(L, -1);
@@ -230,7 +229,7 @@ int removeWidget(lua_State* L) {
 
     return 0;
 }
-
+l for as
 void onRenderStage(eRenderStage stage) {
     if (stage != RENDER_POST_WALLPAPER)
         return;
