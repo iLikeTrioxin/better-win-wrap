@@ -147,7 +147,7 @@ int addWidget(lua_State* L) {
         return 0;
     }
 
-    widgetPMONITOR.position.x = getInt("x", -1);
+    widget.position.x = getInt("x", -1);
     widget.position.y = getInt("y", -1);
     widget.size.x     = getInt("w", -1);
     widget.size.y     = getInt("h", -1);
