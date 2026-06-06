@@ -166,7 +166,7 @@ int addWidget(lua_State* L) {
         widget.size.y = box.h / PMONITOR->m_size.y;
     }
 
-    HyprlandAPI::addNotification(PHANDLE, "[hw] x: " + widget.position.x + ", y: " + widget.position.y + ", w: " + widget.size.x + ", h" + widget.size.y + "ok", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+    HyprlandAPI::addNotification(PHANDLE, "[hw] x: " + std::to_string(widget.position.x) + ", y: " + std::to_string(widget.position.y) + ", w: " + std::to_string(widget.size.x) + ", h" + std::to_string(widget.size.y) + "ok", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
     widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
     widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     widget.window->updateDecorationValues();
