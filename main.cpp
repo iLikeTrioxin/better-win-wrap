@@ -62,7 +62,15 @@ public:
 
 std::vector<Widget> widgets;
 
-void configureWidget(Widget& widget){
+void addWidget(Widget& widget){
+    Hyprutils::String::CVarList vars(widget.match, 0, ',');
+    widget.window = g_pCompositor->getWindowByRegex(vars[0]);
+
+    if (!widget.window){
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any window to '" + widget.match + "' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        return;
+    }
+
     const auto PMONITOR = widget.window->m_monitor.lock();
 
     if (!PMONITOR) return;
@@ -102,8 +110,8 @@ void configureWidget(Widget& widget){
     widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
     widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     widget.window->updateDecorationValues();
-    g_pInputManager->refocus();
     widget.window->m_hidden = true;
+    g_pInputManager->refocus();
 
     widgets.push_back(widget);
     std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
@@ -113,9 +121,9 @@ void configureWidget(Widget& widget){
     Log::logger->log(Log::DEBUG, "[hyperwidgets] new widget added successfully");
 }
 
-int addWidget(lua_State* L) {
+int luaAddWidget(lua_State* L) {
     if (!lua_istable(L, 1))
-        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: expected a table { match?, tag?, x?, y?, w?, h?, z? }");
+        return Config::Lua::Bindings::Internal::configError(L, "[hyprwidgets] add_widget: expected a table { match?, tag?, x?, y?, w?, h?, z? }");
 
     auto getInt = [&](const std::string& name , int def) -> lua_Integer{
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
@@ -137,15 +145,7 @@ int addWidget(lua_State* L) {
     Widget widget;
 
     widget.match = getStr("match", "active");
-    widget.tag   = getStr("tag", "hyprwidget");
-
-    Hyprutils::String::CVarList vars(widget.match, 0, ',');
-    widget.window = g_pCompositor->getWindowByRegex(vars[0]);
-
-    if (!widget.window){
-        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any window to '" + widget.match + "' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-        return 0;
-    }
+    widget.tag   = getStr("tag", "hyprwidget"); 
 
     widget.position.x = getInt("x", -1);
     widget.position.y = getInt("y", -1);
@@ -153,7 +153,7 @@ int addWidget(lua_State* L) {
     widget.size.y     = getInt("h", -1);
     widget.priority   = getInt("z", -1);
  
-    configureWidget(widget); 
+    addWidget(widget); 
 
     return 0;
 }
@@ -168,24 +168,10 @@ void onCloseWindow(PHLWINDOW pWindow) {
     //    return true;
     //});
 
-    Log::logger->log(Log::DEBUG, "[hyprwinwrap] closed window");
+    Log::logger->log(Log::DEBUG, "[hyprwidgets] Widget removed");
 }
 
-int removeWidget(lua_State* L) {
-    if (!lua_istable(L, 1))
-        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: expected a table { match }");
-
-    std::string match;
-    {
-        Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
-        lua_getfield(L, 1, "match");
-    
-        if (!lua_isstring(L, -1))
-            return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: 'match' must be a class string");
-
-        match = lua_tostring(L, -1);
-    }
-
+int freeWidget(std::string match){
     Hyprutils::String::CVarList vars(match, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
 
@@ -206,8 +192,27 @@ int removeWidget(lua_State* L) {
     }
 
     Desktop::Rule::ruleEngine()->updateAllRules();
+    g_pInputManager->refocus();
 
     return 0;
+}
+
+int luaFreeWidget(lua_State* L) {
+    if (!lua_istable(L, 1))
+        return Config::Lua::Bindings::Internal::configError(L, "[hyprwidgets] free_widget: expected a table { match }");
+
+    std::string match;
+    {
+        Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
+        lua_getfield(L, 1, "match");
+    
+        if (!lua_isstring(L, -1))
+            return Config::Lua::Bindings::Internal::configError(L, "[hyprwidgets]: free_widget: 'match' must be a class string");
+
+        match = lua_tostring(L, -1);
+    }
+
+    return freeWidget(match);
 }
 
 void onRenderStage(eRenderStage stage) {
@@ -296,17 +301,17 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     const std::string CLIENT_HASH = __hyprland_api_get_client_hash();
 
     if (HASH != CLIENT_HASH) {
-        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Failure in initialization: Version mismatch (headers ver is not equal to running hyprland ver)",
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Failure in initialization: Version mismatch (headers ver is not equal to running hyprland ver)",
                                      CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-        throw std::runtime_error("[hww] Version mismatch");
+        throw std::runtime_error("[hyprwidgets] Version mismatch");
     }
 
     if (Config::mgr()->type() == Config::CONFIG_LUA) {
-        HyprlandAPI::addLuaFunction(PHANDLE, "hyprwidgets", "add_widget", ::addWidget);
-        HyprlandAPI::addLuaFunction(PHANDLE, "hyprwidgets", "remove_widget", ::removeWidget);
+        HyprlandAPI::addLuaFunction(PHANDLE, "hyprwidgets", "add_widget", ::luaAddWidget);
+        HyprlandAPI::addLuaFunction(PHANDLE, "hyprwidgets", "free_widget", ::luaFreeWidget);
     } else {
-        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Failure in initialization: Legacy config not supported, please use lua.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-        throw std::runtime_error("[hww] Config type not supported, please use lua.");
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Failure in initialization: Legacy config not supported, please use lua.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        throw std::runtime_error("[hyprwidgets] Config type not supported, please use lua.");
     }
 
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
@@ -315,39 +320,25 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 
     auto fns = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN7Desktop4View11CSubsurface8onCommitEv");
     if (fns.size() < 1)
-        throw std::runtime_error("hyprwinwrap: onCommit not found");
+        throw std::runtime_error("[hyprwidgets] onCommit not found");
     subsurfaceHook = HyprlandAPI::createFunctionHook(PHANDLE, fns[0].address, (void*)&onCommitSubsurface);
 
     fns = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN7Desktop4View7CWindow12commitWindowEv");
     if (fns.size() < 1)
-        throw std::runtime_error("hyprwinwrap: listener_commitWindow not found");
+        throw std::runtime_error("[hyprwidgets] listener_commitWindow not found");
     commitHook = HyprlandAPI::createFunctionHook(PHANDLE, fns[0].address, (void*)&onCommit);
 
     bool hkResult = subsurfaceHook->hook();
     hkResult      = hkResult && commitHook->hook();
 
     if (!hkResult)
-        throw std::runtime_error("hyprwinwrap: hooks failed");
+        throw std::runtime_error("[hyprwidgets] hooks failed");
 
-    HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
+    HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
 
-    return {"hyprwinwrap", "A clone of xwinwrap for Hyprland", "Vaxry", "1.0"};
+    return {"hyprwidgets", "Remake of Vaxry's hyprwinwrap.", "iLikeTrioxin", "1.0"};
 }
 
 APICALL EXPORT void PLUGIN_EXIT() {
-    for(auto& widget : widgets){
-        const auto bgw = widget.window.lock();
-
-        bgw->m_hidden = false;
-        bgw->m_pinned = false;
-        bgw->m_ruleApplicator->m_tagKeeper.applyTag("-" + widget.tag, true);
-        bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
-        bgw->updateDecorationValues();
-
-        if (bgw->m_isFloating) g_layoutManager->changeFloatingMode(bgw->layoutTarget());
-
-        onCloseWindow(bgw);
-    }
-
-    Desktop::Rule::ruleEngine()->updateAllRules();
+    removeWidget("all");
 }
