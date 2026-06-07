@@ -110,8 +110,9 @@ void addWidget(Widget& widget){
     widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
     widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     widget.window->updateDecorationValues();
+    Desktop::Rule::ruleEngine()->updateAllRules();
     widget.window->m_hidden = true;
-    Desktop::focusState()->rawMonitorFocus(PMONITOR);
+    Desktop::focusState()->resetWindowFocus();
     g_pInputManager->refocus();
 
     widgets.push_back(widget);
@@ -172,7 +173,7 @@ void onCloseWindow(PHLWINDOW pWindow) {
     Log::logger->log(Log::DEBUG, "[hyprwidgets] Widget removed");
 }
 
-int freeWidget(std::string match){
+int freeWidget(std::string match, bool preserveFloat = true){
     Hyprutils::String::CVarList vars(match, 0, ',');
     PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
 
@@ -187,7 +188,8 @@ int freeWidget(std::string match){
         bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
         bgw->updateDecorationValues();
 
-        if (bgw->m_isFloating) g_layoutManager->changeFloatingMode(bgw->layoutTarget());
+        if ((bgw->m_isFloating != widget.wasFloating) == preserveFloat)
+            g_layoutManager->changeFloatingMode(bgw->layoutTarget());
 
         onCloseWindow(bgw);
     }
