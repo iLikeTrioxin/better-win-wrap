@@ -53,6 +53,7 @@ class Widget{
 public:
     int priority = 0;
     PHLWINDOWREF window = nullptr;
+    bool wasFloating = false;
     std::string match;
     std::string tag;
     Vector2D position;
@@ -167,11 +168,13 @@ int addWidget(lua_State* L) {
     }
 
     HyprlandAPI::addNotification(PHANDLE, "[hw] x: " + std::to_string(widget.position.x) + ", y: " + std::to_string(widget.position.y) + ", w: " + std::to_string(widget.size.x) + ", h" + std::to_string(widget.size.y) + "ok", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+   
+    configureWidget(widget);
+
     widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
     widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     widget.window->updateDecorationValues();
-   
-    configureWidget(widget);
+
     std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
         return a.priority < b.priority;
     });
@@ -300,6 +303,13 @@ void onCommit(void* owner, void* data) {
     PWINDOW->m_hidden = true;
 }
 
+void onConfigReload(){
+    for (auto& widget : widgets){
+        widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
+        widget.window->updateDecorationValues();
+    }
+}
+
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     PHANDLE = handle;
 
@@ -322,6 +332,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
     static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
+    static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReload(); });
 
     auto fns = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN7Desktop4View11CSubsurface8onCommitEv");
     if (fns.size() < 1)
