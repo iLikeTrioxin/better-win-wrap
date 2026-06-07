@@ -164,11 +164,6 @@ void onCloseWindow(PHLWINDOW pWindow) {
     std::erase_if(widgets, [pWindow](const auto& ref) {
         return ref.window.expired() || ref.window.lock() == pWindow;
     });
-    //std::erase_if(bgRules, [pWindow](const auto& rule) {
-    //    if (rule->name() != std::to_string(pWindow->getPID())) return false;
-    //    Desktop::Rule::ruleEngine()->unregisterRule(rule);
-    //    return true;
-    //});
 
     Log::logger->log(Log::DEBUG, "[hyprwidgets] Widget removed");
 }
@@ -228,6 +223,9 @@ void onRenderStage(eRenderStage stage) {
         if (bgw->m_monitor != g_pHyprRenderer->m_renderData.pMonitor)
             continue;
 
+        /// Here because moving windows, workspaces, etc. causes suspend (even when inhabit is set)
+        if (bgw->m_suspended) bgw->setSuspended(false);
+
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
 
@@ -243,7 +241,6 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
     if(!PWINDOW){
         ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
         return;
-
     }
 
     const auto& widget = std::find_if(widgets.begin(), widgets.end(), [PWINDOW](const auto& ref) {
