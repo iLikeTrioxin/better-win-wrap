@@ -61,6 +61,26 @@ public:
 };
 
 std::vector<Widget> widgets;
+std::vector<SP<Desktop::Rule::IRule>> bgRules;
+
+static SP<Desktop::Rule::CWindowRule> makeWindowRule(const std::string& name, const Desktop::Rule::eRuleProperty prop, const std::string& match) {
+    auto rule = makeShared<Desktop::Rule::CWindowRule>(name);
+    rule->registerMatch(prop, match);
+    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_FLOAT, "1");
+    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NOINITIALFOCUS, "1");
+    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_FOCUS, "1");
+    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_ALLOWS_INPUT, "0");
+    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_BORDER_SIZE, "0");
+    return rule;
+}
+
+static void clearWindowRules() {
+    for (auto& rule : bgRules) {
+        if (rule)
+            Desktop::Rule::ruleEngine()->unregisterRule(rule);
+    }
+    bgRules.clear();
+}
 
 void configureWidget(const Widget& widget){
     const auto PMONITOR = widget.window->m_monitor.lock();
@@ -304,10 +324,18 @@ void onCommit(void* owner, void* data) {
 }
 
 void onConfigReload(){
+    clearWindowRules();
+
     for (auto& widget : widgets){
         widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
         widget.window->updateDecorationValues();
     }
+
+    auto rule = makeWindowRule("hyprwidgets", Desktop::Rule::RULE_PROP_TAG, "hyprwidget*");
+    bgRules.emplace_back(rule);
+    Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
+
+    Desktop::Rule::ruleEngine()->updateAllRules();
 }
 
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
@@ -349,6 +377,8 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 
     if (!hkResult)
         throw std::runtime_error("hyprwinwrap: hooks failed");
+
+    onConfigReload();
 
     HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
 
