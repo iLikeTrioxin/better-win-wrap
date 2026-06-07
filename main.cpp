@@ -111,6 +111,7 @@ void addWidget(Widget& widget){
     widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     widget.window->updateDecorationValues();
     widget.window->m_hidden = true;
+    Desktop::focusState()->rawMonitorFocus(PMONITOR);
     g_pInputManager->refocus();
 
     widgets.push_back(widget);
