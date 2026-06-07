@@ -82,62 +82,61 @@ static void clearWindowRules() {
     bgRules.clear();
 }
 
-void configureWidget(const Widget& widget){
+void configureWidget(Widget& widget){
     const auto PMONITOR = widget.window->m_monitor.lock();
-    if (!PMONITOR)
-        return;
 
-    if (!widget.window->m_isFloating)
-        g_layoutManager->changeFloatingMode(widget.window->layoutTarget());
+    if (!PMONITOR) return;
 
-    float sx = widget.size.x;
-    float sy = widget.size.y;
-    float px = widget.position.x;
-    float py = widget.position.y;
+    const auto& layout = widget.window->layoutTarget();
+    CBox newBox = layout->position();
+    widget.wasFloating = true;
 
-    sx = std::clamp(sx, 1.f, 100.f);
-    sy = std::clamp(sy, 1.f, 100.f);
-    px = std::clamp(px, 0.f, 100.f);
-    py = std::clamp(py, 0.f, 100.f);
+    if (!widget.window->m_isFloating){
+        widget.wasFloating = false;
 
-    if (px + sx > 100.f) {
-        Log::logger->log(Log::WARN, "[hyprwinwrap] size_x (%d) + pos_x (%d) > 100, adjusting size_x to %d", sx, px, 100.f - px);
-        sx = 100.f - px;
-    }
-    if (py + sy > 100.f) {
-        Log::logger->log(Log::WARN, "[hyprwinwrap] size_y (%d) + pos_y (%d) > 100, adjusting size_y to %d", sy, py, 100.f - py);
-        sy = 100.f - py;
+        if(widget.position.x < 0) newBoundingBox.x = 0;
+        if(widget.position.y < 0) newBoundingBox.y = 0;
+
+        if(widget.size.x <= 0) newBoundingBox.w = PMONITOR->m_size.x;
+        if(widget.size.y <= 0) newBoundingBox.h = PMONITOR->m_size.y;
+
+        g_layoutManager->changeFloatingMode(layout);
     }
 
-    const Vector2D monitorSize = PMONITOR->m_size;
-    const Vector2D monitorPos  = PMONITOR->m_position;
+    if(widget.position.x >= 100 || widget.position.y >= 100 || widget.size.x >= 100 || widget.size.y >= 100)
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Widget position and size should be a % value - scaling down.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
 
-    const Vector2D newSize = {static_cast<int>(monitorSize.x * (sx / 100.f)), static_cast<int>(monitorSize.y * (sy / 100.f))};
+    if(widget.position.x >= 0) newBox.x = PMONITOR.m_size.x * std::clamp(widget.position.x, 1.f - widget.size.x, 99.f);
+    if(widget.position.y >= 0) newBox.y = PMONITOR.m_size.y * std::clamp(widget.position.y, 1.f - widget.size.y, 99.f);
+    if(widget.size.x     >  0) newBox.w = PMONITOR.m_size.x * std::clamp(widget.size.x, 1.f, 100.f);
+    if(widget.size.y     >  0) newBox.h = PMONITOR.m_size.y * std::clamp(widget.size.y, 1.f, 100.f);
 
-    const Vector2D newPos = {static_cast<int>(monitorPos.x + (monitorSize.x * (px / 100.f))), static_cast<int>(monitorPos.y + (monitorSize.y * (py / 100.f)))};
-
-    const CBox b(newPos.x, newPos.y, newSize.x, newSize.y);
-
-    widget.window->layoutTarget()->space()->setTargetGeom(b, widget.window->layoutTarget());
-    widget.window->m_realSize->setValueAndWarp(newSize);
-    widget.window->m_realPosition->setValueAndWarp(newPos);
-    widget.window->m_size     = newSize;
-    widget.window->m_position = newPos;
+    layout->setTargetGeom(newBox, layout);
+    widget.window->m_realSize->setValueAndWarp(newBox.size());
+    widget.window->m_realPosition->setValueAndWarp(newBox.pos());
+    widget.window->m_size     = newBox.size();
+    widget.window->m_position = newBox.pos();
     widget.window->m_pinned   = true;
     widget.window->sendWindowSize(true);
+
+    widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
+    widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
+    widget.window->updateDecorationValues();
+    g_pInputManager->refocus();
     widget.window->m_hidden = true;
 
     widgets.push_back(widget);
+    std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
+        return a.priority < b.priority;
+    });
 
-    g_pInputManager->refocus();
-    Log::logger->log(Log::DEBUG, "[hyprwinwrap] new window moved to bg");
+    Log::logger->log(Log::DEBUG, "[hyperwidgets] new widget added successfully");
 }
 
 int addWidget(lua_State* L) {
     if (!lua_istable(L, 1))
-        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: expected a table { match, tag, x, y, w, h, z }");
+        return Config::Lua::Bindings::Internal::configError(L, "hyprwinwrap: expected a table { match?, tag?, x?, y?, w?, h?, z? }");
 
-    Log::logger->log(Log::DEBUG, "ENTER NOW HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
     auto getInt = [&](const std::string& name , int def) -> lua_Integer{
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
         lua_getfield(L, 1, name.c_str());
@@ -173,31 +172,8 @@ int addWidget(lua_State* L) {
     widget.size.x     = getInt("w", -1);
     widget.size.y     = getInt("h", -1);
     widget.priority   = getInt("z", -1);
-
-    // if negative values are set use the window current position/size
-    const auto PMONITOR = widget.window->m_monitor.lock();
-    const auto& box = widget.window->layoutTarget()->position();
-    if(widget.position.x < 0 || widget.position.y < 0){
-        widget.position.x = (box.x*100) / PMONITOR->m_size.x;
-        widget.position.y = (box.y*100) / PMONITOR->m_size.y;
-    }
-
-    if(widget.size.x < 0 || widget.size.y < 0){
-        widget.size.x = (box.w*100) / PMONITOR->m_size.x;
-        widget.size.y = (box.h*100) / PMONITOR->m_size.y;
-    }
-
-    HyprlandAPI::addNotification(PHANDLE, "[hw] x: " + std::to_string(widget.position.x) + ", y: " + std::to_string(widget.position.y) + ", w: " + std::to_string(widget.size.x) + ", h" + std::to_string(widget.size.y) + "ok", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-
-    widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
-    widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
-    widget.window->updateDecorationValues();
-
-    configureWidget(widget);
-
-    std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
-        return a.priority < b.priority;
-    });
+ 
+    configureWidget(widget); 
 
     return 0;
 }
@@ -326,20 +302,12 @@ void onCommit(void* owner, void* data) {
 }
 
 void onConfigReload(){
-    // clearWindowRules();
-
     for (auto& widget : widgets){
         widget.window->m_hidden = false;
         widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
         widget.window->updateDecorationValues();
     }
-
-    // auto rule = makeWindowRule("hyprwidgets", Desktop::Rule::RULE_PROP_TAG, "hyprwidget*");
-    // bgRules.emplace_back(rule);
-    // Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
-
     Desktop::Rule::ruleEngine()->updateAllRules();
-
     for(auto& widget : widgets) widget.window->m_hidden = true;
 }
 
