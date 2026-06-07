@@ -54,6 +54,7 @@ public:
     int priority = 0;
     PHLWINDOWREF window = nullptr;
     bool wasFloating = false;
+    bool isDead = false;
     std::string match;
     std::string tag;
     Vector2D position;
@@ -162,7 +163,7 @@ int luaAddWidget(lua_State* L) {
 
 void onCloseWindow(PHLWINDOW pWindow) {
     std::erase_if(widgets, [pWindow](const auto& ref) {
-        return ref.window.expired() || ref.window.lock() == pWindow;
+        return ref.window.expired() || ref.window.lock() == pWindow || ref.isDead;
     });
 
     Log::logger->log(Log::DEBUG, "[hyprwidgets] Widget removed");
@@ -186,8 +187,10 @@ int freeWidget(std::string match, bool preserveFloat = true){
         if ((bgw->m_isFloating != widget.wasFloating) == preserveFloat)
             g_layoutManager->changeFloatingMode(bgw->layoutTarget());
 
-        onCloseWindow(bgw);
+        widget.isDead = true;
     }
+
+    onCloseWindow(nullptr);
 
     Desktop::Rule::ruleEngine()->updateAllRules();
     g_pInputManager->refocus();
