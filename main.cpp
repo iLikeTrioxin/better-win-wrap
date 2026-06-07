@@ -264,7 +264,7 @@ void onRenderStage(eRenderStage stage) {
         if (bgw->m_monitor != g_pHyprRenderer->m_renderData.pMonitor)
             continue;
 
-        if (bgw->m_suspended) bgw->setSuspeneded(false);
+        if (bgw->m_suspended) bgw->setSuspended(false);
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
