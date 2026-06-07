@@ -61,26 +61,6 @@ public:
 };
 
 std::vector<Widget> widgets;
-std::vector<SP<Desktop::Rule::IRule>> bgRules;
-
-static SP<Desktop::Rule::CWindowRule> makeWindowRule(const std::string& name, const Desktop::Rule::eRuleProperty prop, const std::string& match) {
-    auto rule = makeShared<Desktop::Rule::CWindowRule>(name);
-    rule->registerMatch(prop, match);
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_FLOAT, "1");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NOINITIALFOCUS, "1");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_NO_FOCUS, "1");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_ALLOWS_INPUT, "0");
-    rule->addEffect(Desktop::Rule::WINDOW_RULE_EFFECT_BORDER_SIZE, "0");
-    return rule;
-}
-
-static void clearWindowRules() {
-    for (auto& rule : bgRules) {
-        if (rule)
-            Desktop::Rule::ruleEngine()->unregisterRule(rule);
-    }
-    bgRules.clear();
-}
 
 void configureWidget(Widget& widget){
     const auto PMONITOR = widget.window->m_monitor.lock();
@@ -111,7 +91,7 @@ void configureWidget(Widget& widget){
     if(widget.size.x     >  0) newBox.w = PMONITOR.m_size.x * std::clamp(widget.size.x, 1.f, 100.f);
     if(widget.size.y     >  0) newBox.h = PMONITOR.m_size.y * std::clamp(widget.size.y, 1.f, 100.f);
 
-    layout->setTargetGeom(newBox, layout);
+    layout->space()->setTargetGeom(newBox, layout);
     widget.window->m_realSize->setValueAndWarp(newBox.size());
     widget.window->m_realPosition->setValueAndWarp(newBox.pos());
     widget.window->m_size     = newBox.size();
@@ -240,8 +220,6 @@ void onRenderStage(eRenderStage stage) {
         if (bgw->m_monitor != g_pHyprRenderer->m_renderData.pMonitor)
             continue;
 
-        if (bgw->m_suspended) bgw->setSuspended(false);
-
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
 
@@ -350,8 +328,6 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 
     if (!hkResult)
         throw std::runtime_error("hyprwinwrap: hooks failed");
-
-    onConfigReload();
 
     HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Initialized successfully!", CHyprColor{0.2, 1.0, 0.2, 1.0}, 5000);
 
