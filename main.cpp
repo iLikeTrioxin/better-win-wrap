@@ -326,7 +326,7 @@ void onCommit(void* owner, void* data) {
 }
 
 void onConfigReload(){
-    clearWindowRules();
+    // clearWindowRules();
 
     for (auto& widget : widgets){
         widget.window->m_hidden = false;
@@ -334,9 +334,9 @@ void onConfigReload(){
         widget.window->updateDecorationValues();
     }
 
-    auto rule = makeWindowRule("hyprwidgets", Desktop::Rule::RULE_PROP_TAG, "hyprwidget*");
-    bgRules.emplace_back(rule);
-    Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
+    // auto rule = makeWindowRule("hyprwidgets", Desktop::Rule::RULE_PROP_TAG, "hyprwidget*");
+    // bgRules.emplace_back(rule);
+    // Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
 
     Desktop::Rule::ruleEngine()->updateAllRules();
 
