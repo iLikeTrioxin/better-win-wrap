@@ -74,11 +74,11 @@ void configureWidget(Widget& widget){
     if (!widget.window->m_isFloating){
         widget.wasFloating = false;
 
-        if(widget.position.x < 0) newBoundingBox.x = 0;
-        if(widget.position.y < 0) newBoundingBox.y = 0;
+        if(widget.position.x < 0) newBox.x = 0;
+        if(widget.position.y < 0) newBox.y = 0;
 
-        if(widget.size.x <= 0) newBoundingBox.w = PMONITOR->m_size.x;
-        if(widget.size.y <= 0) newBoundingBox.h = PMONITOR->m_size.y;
+        if(widget.size.x <= 0) newBox.w = PMONITOR->m_size.x;
+        if(widget.size.y <= 0) newBox.h = PMONITOR->m_size.y;
 
         g_layoutManager->changeFloatingMode(layout);
     }
@@ -86,10 +86,10 @@ void configureWidget(Widget& widget){
     if(widget.position.x >= 100 || widget.position.y >= 100 || widget.size.x >= 100 || widget.size.y >= 100)
         HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Widget position and size should be a % value - scaling down.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
 
-    if(widget.position.x >= 0) newBox.x = PMONITOR.m_size.x * std::clamp(widget.position.x, 1.f - widget.size.x, 99.f);
-    if(widget.position.y >= 0) newBox.y = PMONITOR.m_size.y * std::clamp(widget.position.y, 1.f - widget.size.y, 99.f);
-    if(widget.size.x     >  0) newBox.w = PMONITOR.m_size.x * std::clamp(widget.size.x, 1.f, 100.f);
-    if(widget.size.y     >  0) newBox.h = PMONITOR.m_size.y * std::clamp(widget.size.y, 1.f, 100.f);
+    if(widget.position.x >= 0) newBox.x = PMONITOR->m_size.x * std::clamp(widget.position.x, 1.0 - widget.size.x, 99.0);
+    if(widget.position.y >= 0) newBox.y = PMONITOR->m_size.y * std::clamp(widget.position.y, 1.0 - widget.size.y, 99.0);
+    if(widget.size.x     >  0) newBox.w = PMONITOR->m_size.x * std::clamp(widget.size.x, 1.0, 100.0);
+    if(widget.size.y     >  0) newBox.h = PMONITOR->m_size.y * std::clamp(widget.size.y, 1.0, 100.0);
 
     layout->space()->setTargetGeom(newBox, layout);
     widget.window->m_realSize->setValueAndWarp(newBox.size());
