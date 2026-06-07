@@ -188,12 +188,12 @@ int addWidget(lua_State* L) {
     }
 
     HyprlandAPI::addNotification(PHANDLE, "[hw] x: " + std::to_string(widget.position.x) + ", y: " + std::to_string(widget.position.y) + ", w: " + std::to_string(widget.size.x) + ", h" + std::to_string(widget.size.y) + "ok", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-   
-    configureWidget(widget);
 
     widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
     widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
     widget.window->updateDecorationValues();
+
+    configureWidget(widget);
 
     std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
         return a.priority < b.priority;
@@ -264,6 +264,8 @@ void onRenderStage(eRenderStage stage) {
         if (bgw->m_monitor != g_pHyprRenderer->m_renderData.pMonitor)
             continue;
 
+        if (bgw->m_suspended) bgw->setSuspeneded(false);
+
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
 
@@ -303,7 +305,7 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
 
 void onCommit(void* owner, void* data) {
     const auto PWINDOW = ((Desktop::View::CWindow*)owner)->m_self.lock();
-    
+
     const auto& widget = std::find_if(widgets.begin(), widgets.end(), [PWINDOW](const auto& ref) {
         return ref.window.lock() == PWINDOW;
     });
@@ -327,6 +329,7 @@ void onConfigReload(){
     clearWindowRules();
 
     for (auto& widget : widgets){
+        widget.window->m_hidden = false;
         widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
         widget.window->updateDecorationValues();
     }
@@ -336,6 +339,8 @@ void onConfigReload(){
     Desktop::Rule::ruleEngine()->registerRule(SP<Desktop::Rule::IRule>{rule});
 
     Desktop::Rule::ruleEngine()->updateAllRules();
+
+    for(auto& widget : widgets) widget.window->m_hidden = true;
 }
 
 APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
