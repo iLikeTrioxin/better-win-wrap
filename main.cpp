@@ -405,7 +405,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("[hyprwidgets] Config type not supported, please use lua.");
     }
 
-    static auto P1 = Event::bus()->m_events.window.moveToWorkspace.listen([&](PHLWORKSPACE w, PHLWINDOW x) { onWorkspaceChange(); });
+    static auto P1 = Event::bus()->m_events.window.moveToWorkspace.listen([&](PHLWINDOW a, PHLWORKSPACE b) { onWorkspaceChange(); });
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
     static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
     static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReload(); });
