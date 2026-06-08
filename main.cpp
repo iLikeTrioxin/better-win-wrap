@@ -280,8 +280,8 @@ void onRenderStage(eRenderStage stage) {
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
-        bgw->m_realPosition->m_Value = widget.position;
-        bgw->m_realSize    ->m_Value = widget.size;
+        // bgw->m_realPosition->m_Value = widget.position;
+        // bgw->m_realSize    ->m_Value = widget.size;
 
         g_pHyprRenderer->renderWindow(bgw, g_pHyprRenderer->m_renderData.pMonitor.lock(), Time::steadyNow(), false, RENDER_PASS_ALL, false, true);
 
