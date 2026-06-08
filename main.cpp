@@ -99,12 +99,18 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         g_layoutManager->changeFloatingMode(layout);
     }
 
-    if(widget.dupeOf){
-        Vector2D relativePos  = widget.dupeOf->position - widget.dupeOf->monitor->m_position;
-        Vector2D relativeSize = widget.dupeOf->size     / widget.dupeOf->monitor->m_size;
+    if(widget.dupeOf != nullptr){
+        Vector2D relativePos  = {0, 0};
+        Vector2D relativeSize = {0, 0};
 
-        if(widget.position.x < 0) newBox.x = widget.monitor->m_position.x + relativePos.x;
-        if(widget.position.y < 0) newBox.y = widget.monitor->m_position.y + relativePos.y;
+        relativePos.x = widget.dupeOf->position.x - widget.dupeOf->window->m_monitor->m_position.x;
+        relativePos.y = widget.dupeOf->position.y - widget.dupeOf->window->m_monitor->m_position.y;
+
+        relativeSize.x = widget.dupeOf->size.x / widget.dupeOf->window->m_monitor->m_size.x;
+        relativeSize.y = widget.dupeOf->size.y / widget.dupeOf->window->m_monitor->m_size.y;
+        
+        if(widget.position.x < 0) newBox.x = widget.monitor->m_position.x * relativePos.x;
+        if(widget.position.y < 0) newBox.y = widget.monitor->m_position.y * relativePos.y;
 
         if(widget.size.x <= 0) newBox.w = widget.monitor->m_size.x * relativeSize.x;
         if(widget.size.y <= 0) newBox.h = widget.monitor->m_size.y * relativeSize.y;
@@ -233,7 +239,11 @@ int freeWidget(std::string match, bool preserveFloat = true){
         const auto bgw = widget.window.lock();
 
         if (bgw != pWindow && match != "" && match != "all") continue;
-        if (widget.dupeOf) { widget.isDead = true; continue; }
+        if (widget.dupeOf) {
+            widget.isDead = true;
+            g_pHyprRenderer->damageMonitor(bgw->m_monitor.lock());
+            continue;
+        }
 
         bgw->m_hidden = false;
         bgw->m_pinned = false;
