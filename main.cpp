@@ -109,8 +109,8 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         relativeSize.x = widget.dupeOf->size.x / widget.dupeOf->window->m_monitor->m_size.x;
         relativeSize.y = widget.dupeOf->size.y / widget.dupeOf->window->m_monitor->m_size.y;
         
-        if(widget.position.x < 0) newBox.x = widget.monitor->m_position.x * relativePos.x;
-        if(widget.position.y < 0) newBox.y = widget.monitor->m_position.y * relativePos.y;
+        if(widget.position.x < 0) newBox.x = widget.monitor->m_position.x + relativePos.x;
+        if(widget.position.y < 0) newBox.y = widget.monitor->m_position.y + relativePos.y;
 
         if(widget.size.x <= 0) newBox.w = widget.monitor->m_size.x * relativeSize.x;
         if(widget.size.y <= 0) newBox.h = widget.monitor->m_size.y * relativeSize.y;
