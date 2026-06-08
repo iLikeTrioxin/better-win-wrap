@@ -51,31 +51,34 @@ typedef void (*origCommit)(void* owner, void* data);
 
 class Widget{
 public:
+    PHLWINDOWREF  window  = nullptr;
+    PHLMONITORREF monitor = nullptr;
+    Vector2D position     = {0, 0};
+    Vector2D size         = {0, 0};
+    Widget* dupeOf = nullptr;
     int priority = 0;
-    PHLWINDOWREF window = nullptr;
-    bool wasFloating = false;
-    bool isDead = false;
     bool global = false;
-    std::string match;
+    bool isDead = false;
+    bool wasFloating = false;
     std::string tag;
-    Vector2D position;
-    Vector2D size;
 };
 
 std::vector<Widget> widgets;
 
-void addWidget(Widget& widget){
-    Hyprutils::String::CVarList vars(widget.match, 0, ',');
-    widget.window = g_pCompositor->getWindowByRegex(vars[0]);
+Widget* createWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string& tag, Vector2D position, Vector2D size, int priority, bool global){
+    Widget widget;
 
-    if (!widget.window){
-        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any window to '" + widget.match + "' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-        return;
-    }
+    widget.tag      = tag;
+    widget.position = position;
+    widget.size     = size;
+    widget.priority = priority;
+    widget.global   = global;
 
-    const auto PMONITOR = widget.window->m_monitor.lock();
+    const auto& original = std::find_if(widgets.begin(), widgets.end(), [widget](const auto& ref) {
+        return ref.window == widget.window && ref.dupeOf == nullptr;
+    });
 
-    if (!PMONITOR) return;
+    if(original == widgets.end()) widget.dupeOf = &original;
 
     const auto& layout = widget.window->layoutTarget();
     CBox newBox = layout->position();
@@ -84,11 +87,11 @@ void addWidget(Widget& widget){
     if (!widget.window->m_isFloating){
         widget.wasFloating = false;
 
-        if(widget.position.x < 0) newBox.x = 0;
-        if(widget.position.y < 0) newBox.y = 0;
+        if(widget.position.x < 0) newBox.x = widget.monitor->m_position.x;
+        if(widget.position.y < 0) newBox.y = widget.monitor->m_position.y;
 
-        if(widget.size.x <= 0) newBox.w = PMONITOR->m_size.x;
-        if(widget.size.y <= 0) newBox.h = PMONITOR->m_size.y;
+        if(widget.size.x <= 0) newBox.w = widget.monitor->m_size.x;
+        if(widget.size.y <= 0) newBox.h = widget.monitor->m_size.y;
 
         g_layoutManager->changeFloatingMode(layout);
     }
@@ -96,38 +99,47 @@ void addWidget(Widget& widget){
     if(widget.position.x >= 100 || widget.position.y >= 100 || widget.size.x >= 100 || widget.size.y >= 100)
         HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Widget position and size should be a % value - scaling down.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
 
-    if(widget.position.x >= 0) newBox.x = (PMONITOR->m_size.x / 100.0) * std::clamp(widget.position.x, 1.0 - widget.size.x, 99.0);
-    if(widget.position.y >= 0) newBox.y = (PMONITOR->m_size.y / 100.0) * std::clamp(widget.position.y, 1.0 - widget.size.y, 99.0);
-    if(widget.size.x     >  0) newBox.w = (PMONITOR->m_size.x / 100.0) * std::clamp(widget.size.x, 1.0, 100.0);
-    if(widget.size.y     >  0) newBox.h = (PMONITOR->m_size.y / 100.0) * std::clamp(widget.size.y, 1.0, 100.0);
+    if(widget.position.x >= 0) newBox.x = widget.monitor->m_position.x + (widget.monitor->m_size.x / 100.0) * std::clamp(widget.position.x, 1.0 - widget.size.x, 99.0);
+    if(widget.position.y >= 0) newBox.y = widget.monitor->m_position.y + (widget.monitor->m_size.y / 100.0) * std::clamp(widget.position.y, 1.0 - widget.size.y, 99.0);
+    if(widget.size.x     >  0) newBox.w = (widget.monitor->m_size.x / 100.0) * std::clamp(widget.size.x, 1.0, 100.0);
+    if(widget.size.y     >  0) newBox.h = (widget.monitor->m_size.y / 100.0) * std::clamp(widget.size.y, 1.0, 100.0);
 
-    layout->space()->setTargetGeom(newBox, layout);
-    widget.window->m_realSize->setValueAndWarp(newBox.size());
-    widget.window->m_realPosition->setValueAndWarp(newBox.pos());
-    widget.window->m_size     = newBox.size();
-    widget.window->m_position = newBox.pos();
-    widget.window->m_pinned   = true;
-    widget.window->sendWindowSize(true);
+    if(widget.dupeOf == nullptr){
+        layout->space()->setTargetGeom(newBox, layout);
+        widget.window->m_realSize->setValueAndWarp(newBox.size());
+        widget.window->m_realPosition->setValueAndWarp(newBox.pos());
+        widget.window->m_size     = newBox.size();
+        widget.window->m_position = newBox.pos();
+        widget.window->m_pinned   = true;
+        widget.window->sendWindowSize(true);
 
-    widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
-    widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
-    widget.window->updateDecorationValues();
-    Desktop::Rule::ruleEngine()->updateAllRules();
-    widget.window->m_hidden = true;
-    Desktop::focusState()->resetWindowFocus();
-    g_pInputManager->refocus();
+        widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
+        widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
+        widget.window->updateDecorationValues();
+        Desktop::Rule::ruleEngine()->updateAllRules();
+        widget.window->m_hidden = true;
+        Desktop::focusState()->resetWindowFocus();
+        g_pInputManager->refocus();
+    }
+
+    widget.position.x = newBox.x;
+    widget.position.y = newBox.y;
+    widget.size.x = newBox.w;
+    widget.size.y = newBox.h;
 
     widgets.push_back(widget);
+
     std::sort(widgets.begin(), widgets.end(), [](const Widget& a, const Widget& b) {
         return a.priority < b.priority;
     });
 
     Log::logger->log(Log::DEBUG, "[hyperwidgets] new widget added successfully");
+    return &(widgets[widgets.size()-1]);
 }
 
 int luaAddWidget(lua_State* L) {
     if (!lua_istable(L, 1))
-        return Config::Lua::Bindings::Internal::configError(L, "[hyprwidgets] add_widget: expected a table { match?, tag?, x?, y?, w?, h?, z?, g? }");
+        return Config::Lua::Bindings::Internal::configError(L, "[hyprwidgets] add_widget: expected a table { match?, tag?, x?, y?, w?, h?, z?, global?, monitor? }");
 
     auto getInt = [&](const std::string& name , int def) -> lua_Integer{
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
@@ -146,25 +158,55 @@ int luaAddWidget(lua_State* L) {
         return lua_tostring(L, -1);
     };
 
-    Widget widget;
+    std::string match   = getStr("match", "active");
+    std::string tag     = getStr("tag", "hyprwidget"); 
+    std::string monName = getStr("monitor", "active"); 
 
-    widget.match = getStr("match", "active");
-    widget.tag   = getStr("tag", "hyprwidget"); 
+    int x = getInt("x", -1);
+    int y = getInt("y", -1);
+    int w = getInt("w", -1);
+    int h = getInt("h", -1);
+    int z = getInt("z", -1);
 
-    widget.position.x = getInt("x", -1);
-    widget.position.y = getInt("y", -1);
-    widget.size.x     = getInt("w", -1);
-    widget.size.y     = getInt("h", -1);
-    widget.priority   = getInt("z", -1);
-    widget.global     = getInt("g",  0);
- 
-    addWidget(widget); 
+    bool global = (bool)getInt("global",  0);
+
+    Hyprutils::String::CVarList vars(match, 0, ',');
+    PHLWINDOWREF window = g_pCompositor->getWindowByRegex(vars[0]);
+
+    if (!window){
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any window to '"+match+"' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        return 0;
+    }
+
+    PHLMONITORREF monitor = widget.window->m_monitor;
+
+    if (monName != "active" && monName != "all")
+        monitor = g_pCompositor.getMonitorFromName(monitor);
+    
+    if (!monitor){
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any monitor to '"+monitor+"'.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        return;
+    }
+
+    if(monName != "all"){
+        addWidget(window, monitor, tag, {x, y}, {w, h}, z, global);
+        return 0;
+    }
+
+    for(auto ref : g_pCompositor->m_monitors){
+        addWidget(window, ref, tag, {x, y}, {w, h}, z, global);
+    }
 
     return 0;
 }
 
 void onCloseWindow(PHLWINDOW pWindow) {
     std::erase_if(widgets, [pWindow](const auto& ref) {
+        if(ref.dupeOf){
+            if(ref.dupeOf->window.expired() || ref.dupeOf->window.lock() == pWindow || ref.dupeOf->isDead){
+                return true;
+            }
+        }
         return ref.window.expired() || ref.window.lock() == pWindow || ref.isDead;
     });
 
@@ -179,6 +221,7 @@ int freeWidget(std::string match, bool preserveFloat = true){
         const auto bgw = widget.window.lock();
 
         if (bgw != pWindow && match != "" && match != "all") continue;
+        if (widget.dupeOf) continue;
 
         bgw->m_hidden = false;
         bgw->m_pinned = false;
@@ -240,6 +283,8 @@ void onRenderStage(eRenderStage stage) {
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
+        bgw->m_realPosition->m_Value = widget.position;
+        bgw->m_realSize    ->m_Value = widget.size;
 
         g_pHyprRenderer->renderWindow(bgw, g_pHyprRenderer->m_renderData.pMonitor.lock(), Time::steadyNow(), false, RENDER_PASS_ALL, false, true);
 
