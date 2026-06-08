@@ -214,9 +214,15 @@ int luaAddWidget(lua_State* L) {
         return 0;
     }
     
+
     // 'all' setting requires global (it doesn't change the monitors just offsets)
     global = true;
+    
+    // always begin from monitor that app lives in
+    addWidget(window, monitor, tag, {x, y}, {w, h}, z, global);
+
     for(auto ref : g_pCompositor->m_monitors){
+        if(ref == monitor.lock()) continue;
         addWidget(window, ref, tag, {x, y}, {w, h}, z, global);
     }
 
@@ -308,7 +314,7 @@ void onRenderStage(eRenderStage stage) {
         bgw->m_realPosition->m_Value = widget.position;
         bgw->m_realSize    ->m_Value = widget.size;
 
-        g_pHyprRenderer->renderWindow(bgw, g_pHyprRenderer->m_renderData.pMonitor.lock(), Time::steadyNow(), false, RENDER_PASS_ALL, false, true);
+        g_pHyprRenderer->renderWindow(bgw, widget.monitor.lock(), Time::steadyNow(), false, RENDER_PASS_ALL, false, true);
 
         bgw->m_hidden = true;
     }
