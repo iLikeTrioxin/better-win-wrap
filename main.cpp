@@ -204,11 +204,6 @@ int luaAddWidget(lua_State* L) {
 
 void onCloseWindow(PHLWINDOW pWindow) {
     std::erase_if(widgets, [pWindow](const auto& ref) {
-        if(ref.dupeOf){
-            if(ref.dupeOf->window.expired() || ref.dupeOf->window.lock() == pWindow || ref.dupeOf->isDead){
-                return true;
-            }
-        }
         return ref.window.expired() || ref.window.lock() == pWindow || ref.isDead;
     });
 
@@ -223,7 +218,7 @@ int freeWidget(std::string match, bool preserveFloat = true){
         const auto bgw = widget.window.lock();
 
         if (bgw != pWindow && match != "" && match != "all") continue;
-        if (widget.dupeOf) continue;
+        if (widget.dupeOf) { widget.isDead = true; continue; }
 
         bgw->m_hidden = false;
         bgw->m_pinned = false;
