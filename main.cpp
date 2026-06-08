@@ -80,7 +80,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         return ref.window == widget.window && ref.dupeOf == nullptr;
     });
 
-    if(original == widgets.end()) widget.dupeOf = &(*original);
+    if(original != widgets.end()) widget.dupeOf = &(*original);
 
     const auto& layout = widget.window->layoutTarget();
     CBox newBox = layout->position();
