@@ -65,7 +65,7 @@ public:
 
 std::vector<Widget> widgets;
 
-Widget* createWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string& tag, Vector2D position, Vector2D size, int priority, bool global){
+Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string& tag, Vector2D position, Vector2D size, int priority, bool global){
     Widget widget;
 
     widget.tag      = tag;
@@ -73,12 +73,14 @@ Widget* createWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::stri
     widget.size     = size;
     widget.priority = priority;
     widget.global   = global;
+    widget.window   = window;
+    widget.monitor  = monitor;
 
     const auto& original = std::find_if(widgets.begin(), widgets.end(), [widget](const auto& ref) {
         return ref.window == widget.window && ref.dupeOf == nullptr;
     });
 
-    if(original == widgets.end()) widget.dupeOf = &original;
+    if(original == widgets.end()) widget.dupeOf = &(*original);
 
     const auto& layout = widget.window->layoutTarget();
     CBox newBox = layout->position();
@@ -178,14 +180,14 @@ int luaAddWidget(lua_State* L) {
         return 0;
     }
 
-    PHLMONITORREF monitor = widget.window->m_monitor;
+    PHLMONITORREF monitor = window->m_monitor;
 
     if (monName != "active" && monName != "all")
-        monitor = g_pCompositor.getMonitorFromName(monitor);
+        monitor = g_pCompositor->getMonitorFromName(monName);
     
     if (!monitor){
         HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any monitor to '"+monitor+"'.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
-        return;
+        return 0;
     }
 
     if(monName != "all"){
