@@ -294,7 +294,7 @@ void onWorkspaceChange(){
     // suspend for hidden windows (even when inhabit is set)
     for (const auto& widget : widgets) {
         const auto bgw = widget.window.lock();
-        if(bgw->m_suspended)
+        if(bgw->m_suspended && widget.dupeOf == nullptr)
             bgw->setSuspended(false);
     }
 }
@@ -405,7 +405,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("[hyprwidgets] Config type not supported, please use lua.");
     }
 
-    static auto P1 = Event::bus()->m_events.workspace.active.listen([&](PHLWORKSPACE w) { onWorkspaceChange(); });
+    static auto P1 = Event::bus()->m_events.window.moveToWorkspace.listen([&](PHLWORKSPACE w, PHLWINDOW x) { onWorkspaceChange(); });
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
     static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
     static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReload(); });
