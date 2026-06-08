@@ -337,14 +337,17 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
         return;
     }
 
-    // cant use setHidden cuz that sends suspended and shit too that would be laggy
-    PWINDOW->m_hidden = false;
+    for(const auto& w : widgets){
+        if(w.window.lock() != PWINDOW) continue;
+        // cant use setHidden cuz that sends suspended and shit too that would be laggy
+        PWINDOW->m_hidden = false;
 
-    ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
-    if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        g_pHyprRenderer->damageMonitor(MON);
+        ((origCommitSubsurface)subsurfaceHook->m_original)(thisptr);
+        if (const auto MON = w.monitor.lock(); MON)
+            g_pHyprRenderer->damageMonitor(MON);
 
-    PWINDOW->m_hidden = true;
+        PWINDOW->m_hidden = true;
+    }
 }
 
 void onCommit(void* owner, void* data) {
@@ -359,14 +362,17 @@ void onCommit(void* owner, void* data) {
         return;
     }
 
-    // cant use setHidden cuz that sends suspended and shit too that would be laggy
-    PWINDOW->m_hidden = false;
+    for(const auto& w : widgets){
+        if(w.window.lock() != PWINDOW) continue;
+        // cant use setHidden cuz that sends suspended and shit too that would be laggy
+        PWINDOW->m_hidden = false;
 
-    ((origCommit)commitHook->m_original)(owner, data);
-    if (const auto MON = PWINDOW->m_monitor.lock(); MON)
-        g_pHyprRenderer->damageMonitor(MON);
+        ((origCommit)commitHook->m_original)(owner, data);
+        if (const auto MON = w.monitor.lock(); MON)
+            g_pHyprRenderer->damageMonitor(MON);
 
-    PWINDOW->m_hidden = true;
+        PWINDOW->m_hidden = true;
+    }
 }
 
 void onConfigReload(){
