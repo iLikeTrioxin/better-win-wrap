@@ -186,7 +186,7 @@ int luaAddWidget(lua_State* L) {
         monitor = g_pCompositor->getMonitorFromName(monName);
     
     if (!monitor){
-        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any monitor to '"+monitor+"'.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any monitor to '"+monName+"'.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
         return 0;
     }
 
