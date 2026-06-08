@@ -55,6 +55,7 @@ public:
     PHLWINDOWREF window = nullptr;
     bool wasFloating = false;
     bool isDead = false;
+    bool global = false;
     std::string match;
     std::string tag;
     Vector2D position;
@@ -126,7 +127,7 @@ void addWidget(Widget& widget){
 
 int luaAddWidget(lua_State* L) {
     if (!lua_istable(L, 1))
-        return Config::Lua::Bindings::Internal::configError(L, "[hyprwidgets] add_widget: expected a table { match?, tag?, x?, y?, w?, h?, z? }");
+        return Config::Lua::Bindings::Internal::configError(L, "[hyprwidgets] add_widget: expected a table { match?, tag?, x?, y?, w?, h?, z?, g? }");
 
     auto getInt = [&](const std::string& name , int def) -> lua_Integer{
         Hyprutils::Utils::CScopeGuard x([L] { lua_pop(L, 1); });
@@ -155,6 +156,7 @@ int luaAddWidget(lua_State* L) {
     widget.size.x     = getInt("w", -1);
     widget.size.y     = getInt("h", -1);
     widget.priority   = getInt("z", -1);
+    widget.global     = getInt("g",  0);
  
     addWidget(widget); 
 
@@ -216,18 +218,25 @@ int luaFreeWidget(lua_State* L) {
     return freeWidget(match);
 }
 
+void onWorkspaceChange(){
+    // Here cuz moving windows, workspaces, etc. causes
+    // suspend for hidden windows (even when inhabit is set)
+    for (const auto& widget : widgets) {
+        const auto bgw = widget.window.lock();
+        if(bgw->m_suspended)
+            bgw->setSuspended(false);
+    }
+}
+
 void onRenderStage(eRenderStage stage) {
     if (stage != RENDER_POST_WALLPAPER)
         return;
 
-    for (auto& widget : widgets) {
+    for (const auto& widget : widgets) {
         const auto bgw = widget.window.lock();
 
-        if (bgw->m_monitor != g_pHyprRenderer->m_renderData.pMonitor)
+        if (bgw->m_monitor != g_pHyprRenderer->m_renderData.pMonitor && !widget.global)
             continue;
-
-        /// Here because moving windows, workspaces, etc. causes suspend (even when inhabit is set)
-        if (bgw->m_suspended) bgw->setSuspended(false);
 
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         bgw->m_hidden = false;
@@ -317,6 +326,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("[hyprwidgets] Config type not supported, please use lua.");
     }
 
+    static auto P1 = Event::bus()->m_events.workspace.active.listen([&](PHLWORKSPACE w) { onWorkspaceChange(); });
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
     static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
     static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReload(); });
