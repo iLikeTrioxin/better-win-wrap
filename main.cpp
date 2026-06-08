@@ -135,6 +135,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         return a.priority < b.priority;
     });
 
+    HyprlandAPI::addNotification(PHANDLE, "Addded: x:" + std::to_string(widget.position.x) + ", y:" + std::to_string(widget.position.y) + ", w:" + std::to_string(widget.size.x) + ", h:" + std::to_string(widget.size.y) + ", glob:" + std::to_string(widget.global), CHyprColor{0.2, 1.0, 0.2, 1.0}, 8000);
     Log::logger->log(Log::DEBUG, "[hyperwidgets] new widget added successfully");
     return &(widgets[widgets.size()-1]);
 }
