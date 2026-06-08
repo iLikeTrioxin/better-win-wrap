@@ -86,6 +86,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
     CBox newBox = layout->position();
     widget.wasFloating = true;
 
+    // it will always be false for dupes, cuz window was set to float in original
     if (!widget.window->m_isFloating){
         widget.wasFloating = false;
 
@@ -98,7 +99,18 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         g_layoutManager->changeFloatingMode(layout);
     }
 
-    if(widget.position.x >= 100 || widget.position.y >= 100 || widget.size.x >= 100 || widget.size.y >= 100)
+    if(widget.dupeOf){
+        Vector2D relativePos  = widget.dupeOf->position - widget.dupeOf->monitor->m_position;
+        Vector2D relativeSize = widget.dupeOf->size     / widget.dupeOf->monitor->m_size;
+
+        if(widget.position.x < 0) newBox.x = widget.monitor->m_position.x + relativePos.x;
+        if(widget.position.y < 0) newBox.y = widget.monitor->m_position.y + relativePos.y;
+
+        if(widget.size.x <= 0) newBox.w = widget.monitor->m_size.x * relativeSize.x;
+        if(widget.size.y <= 0) newBox.h = widget.monitor->m_size.y * relativeSize.y;
+    }
+
+    if(widget.position.x > 99 || widget.position.y > 99 || widget.size.x > 100 || widget.size.y > 100)
         HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Widget position and size should be a % value - scaling down.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
 
     if(widget.position.x >= 0) newBox.x = widget.monitor->m_position.x + (widget.monitor->m_size.x / 100.0) * std::clamp(widget.position.x, 1.0 - widget.size.x, 99.0);
@@ -195,7 +207,9 @@ int luaAddWidget(lua_State* L) {
         addWidget(window, monitor, tag, {x, y}, {w, h}, z, global);
         return 0;
     }
-
+    
+    // 'all' setting requires global (it doesn't change the monitors just offsets)
+    global = true;
     for(auto ref : g_pCompositor->m_monitors){
         addWidget(window, ref, tag, {x, y}, {w, h}, z, global);
     }
