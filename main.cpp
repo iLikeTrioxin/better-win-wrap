@@ -296,7 +296,7 @@ void onRenderStage(eRenderStage stage) {
     for (const auto& widget : widgets) {
         const auto bgw = widget.window.lock();
 
-        if (bgw->m_monitor != g_pHyprRenderer->m_renderData.pMonitor && !widget.global)
+        if (widget.monitor != g_pHyprRenderer->m_renderData.pMonitor && !widget.global)
             continue;
 
         // Here cuz moving windows, workspaces, etc. causes
