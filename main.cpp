@@ -245,8 +245,8 @@ int freeWidget(std::string match, bool preserveFloat = true){
             g_pHyprRenderer->damageMonitor(bgw->m_monitor.lock());
 
             // Final render should be where the window was originally at to avoid any weirdness
-            widget->window->m_realPosition->m_Value = widget->dupeOf->position;
-            widget->window->m_realSize    ->m_Value = widget->dupeOf->size;
+            widget.window->m_realPosition->m_Value = widget.dupeOf->position;
+            widget.window->m_realSize    ->m_Value = widget.dupeOf->size;
 
             continue;
         }
