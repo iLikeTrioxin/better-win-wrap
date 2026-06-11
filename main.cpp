@@ -153,7 +153,6 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         return a.priority < b.priority;
     });
 
-    HyprlandAPI::addNotification(PHANDLE, "Addded: x:" + std::to_string(widget.position.x) + ", y:" + std::to_string(widget.position.y) + ", w:" + std::to_string(widget.size.x) + ", h:" + std::to_string(widget.size.y) + ", glob:" + std::to_string(widget.global), CHyprColor{0.2, 1.0, 0.2, 1.0}, 8000);
     Log::logger->log(Log::DEBUG, "[hyperwidgets] new widget added successfully");
     return &(widgets[widgets.size()-1]);
 }
@@ -195,7 +194,7 @@ int luaAddWidget(lua_State* L) {
     PHLWINDOWREF window = g_pCompositor->getWindowByRegex(vars[0]);
 
     if (!window){
-        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any window to '"+match+"' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Could not match any window to '"+match+"' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
         return 0;
     }
 
@@ -205,7 +204,7 @@ int luaAddWidget(lua_State* L) {
         monitor = g_pCompositor->getMonitorFromName(monName);
     
     if (!monitor){
-        HyprlandAPI::addNotification(PHANDLE, "[hyprwinwrap] Could not match any monitor to '"+monName+"'.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
+        HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Could not match any monitor to '"+monName+"'.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
         return 0;
     }
 
@@ -213,10 +212,6 @@ int luaAddWidget(lua_State* L) {
         addWidget(window, monitor, tag, {x, y}, {w, h}, z, global);
         return 0;
     }
-    
-
-    // 'all' setting requires global (it doesn't change the monitors just offsets)
-    global = true;
     
     // always begin from monitor that app lives in
     addWidget(window, monitor, tag, {x, y}, {w, h}, z, global);
@@ -248,6 +243,11 @@ int freeWidget(std::string match, bool preserveFloat = true){
         if (widget.dupeOf) {
             widget.isDead = true;
             g_pHyprRenderer->damageMonitor(bgw->m_monitor.lock());
+
+            // Final render should be where the window was originally at to avoid any weirdness
+            widget->window->m_realPosition->m_Value = widget->dupeOf->position;
+            widget->window->m_realSize    ->m_Value = widget->dupeOf->size;
+
             continue;
         }
 
@@ -400,6 +400,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
     }
 
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
+    // static auto P2 = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onCloseWindow(w); });
     static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
     static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReload(); });
 
