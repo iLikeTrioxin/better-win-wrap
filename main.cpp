@@ -18,7 +18,7 @@ extern "C" {
 #include <hyprland/src/config/lua/bindings/LuaBindingsInternal.hpp>
 #include <hyprland/src/layout/space/Space.hpp>
 #include <hyprland/src/Compositor.hpp>
-#include <hyprland/src/desktop/view/Window.hpp>
+#include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/config/ConfigManager.hpp>
 #include <hyprland/src/desktop/rule/Engine.hpp>
 #include <hyprland/src/desktop/rule/windowRule/WindowRule.hpp>
@@ -51,15 +51,16 @@ typedef void (*origCommit)(void* owner, void* data);
 
 class Widget{
 public:
-    PHLWINDOWREF  window  = nullptr;
-    PHLMONITORREF monitor = nullptr;
     Vector2D position     = {0, 0};
     Vector2D size         = {0, 0};
-    Widget* dupeOf = nullptr;
-    int priority = 0;
-    bool global = false;
-    bool isDead = false;
+    PHLWINDOWREF  window  = nullptr;
+    PHLMONITORREF monitor = nullptr;
+    Widget* dupeOf   = nullptr;
+    bool isParallax  = false;
     bool wasFloating = false;
+    bool global      = false;
+    bool isDead      = false;
+
     std::string tag;
 };
 
@@ -188,7 +189,8 @@ int luaAddWidget(lua_State* L) {
     int h = getInt("h", -1);
     int z = getInt("z", -1);
 
-    bool global = (bool)getInt("global",  0);
+    bool global   = (bool)getInt("global",  0);
+    bool parallax = (bool)getInt("parallax", 0);
 
     Hyprutils::String::CVarList vars(match, 0, ',');
     PHLWINDOWREF window = g_pCompositor->getWindowByRegex(vars[0]);
