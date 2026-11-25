@@ -187,7 +187,7 @@ PHLMONITOR findMonitorByName(const std::string& name){
     }
 
     for (auto const& m : State::monitorState()->monitors()) {
-        if(std::string(m->name) == name) {
+        if(m->name() == name) {
             return m;
         }
     }
