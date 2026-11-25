@@ -98,7 +98,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
     widget.wasFloating = true;
 
     // it will always be false for dupes, cuz window was set to float in original
-    if (!layout->floating()){
+    if (!window->windowTarget()->floating()){
         widget.wasFloating = false;
 
         if(widget.position.x < 0) newBox.x = widget.monitor->m_position.x;
@@ -107,7 +107,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         if(widget.size.x <= 0) newBox.w = widget.monitor->m_size.x;
         if(widget.size.y <= 0) newBox.h = widget.monitor->m_size.y;
 
-        layout->setFloating(true);
+        window->windowTarget()->setFloating(true);
     }
 
     if(widget.dupeOf != nullptr){
@@ -323,8 +323,8 @@ int freeWidget(const std::string& match, bool preserveFloat = true){
         bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
         // bgw->updateDecorationValues();
 
-        if ((bgw->layoutTarget()->floating() != widget.wasFloating) == preserveFloat)
-            bgw->layoutTarget()->setFloating(widget.wasFloating);
+        if ((bgw->windowTarget()->floating() != widget.wasFloating) == preserveFloat)
+            bgw->windowTarget()->setFloating(widget.wasFloating);
 
         widget.isDead = true;
     }
