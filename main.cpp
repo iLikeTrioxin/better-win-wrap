@@ -150,18 +150,20 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         // widget.window->m_pinned   = true;
         // widget.window->sendWindowSize(true);
 
+        widget.window->m_state |= Desktop::View::WINDOW_STATE_PINNED;
+        
+        widget.window->m_hidden = true;
+        
         widget.window->m_ruleApplicator->noFocusOverride(Desktop::Types::COverridableVar<bool>(true, Desktop::Types::PRIORITY_SET_PROP));
         // Hypr 0.56: unmap takes a close-anim snapshot while onCommit has us momentarily unhidden and we see a flash on window kill
         widget.window->m_ruleApplicator->noAnimOverride(Desktop::Types::COverridableVar<bool>(true, Desktop::Types::PRIORITY_SET_PROP));
+        
+        // widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
+        // widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
+        // Desktop::Rule::ruleEngine()->updateAllRules();
 
-        widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
-        widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
-        // widget.window->updateDecorationValues();
-        Desktop::Rule::ruleEngine()->updateAllRules();
-        widget.window->m_hidden = true;
-        Desktop::focusState()->resetWindowFocus();
         g_pInputManager->refocus();
-        widget.window->m_state |= Desktop::View::WINDOW_STATE_PINNED;
+        Desktop::focusState()->resetWindowFocus();
     }
 
     widget.position.x = newBox.x;
