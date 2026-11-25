@@ -143,10 +143,10 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         // widget.window->m_position = newBox.pos();
         widget.window->m_state |= Desktop::View::WINDOW_STATE_PINNED;
         layout->setPositionGlobal(newBox);
-        target->warpPositionSize();
+        layout->warpPositionSize();
 
-        widget.window->sizeAnimation()->setValueAndWarp(newSize);
-        widget.window->positionAnimation()->setValueAndWarp(newPos);
+        widget.window->sizeAnimation()->setValueAndWarp(newBox.size());
+        widget.window->positionAnimation()->setValueAndWarp(newBox.pos());
         widget.window->sendWindowSize(true);
         // widget.window->m_pinned   = true;
         // widget.window->sendWindowSize(true);
