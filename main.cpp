@@ -46,7 +46,6 @@ using namespace Render::GL;
 #include <hyprland/src/state/MonitorState.hpp>
 #include <hyprland/src/state/MonitorQuery.hpp>
 #include "globals.hpp"
-#include "bgrender.hpp"
 
 // Do NOT change this function
 APICALL EXPORT std::string PLUGIN_API_VERSION() {
