@@ -141,9 +141,19 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         // widget.window->m_realPosition->setValueAndWarp(newBox.pos());
         // widget.window->m_size     = newBox.size();
         // widget.window->m_position = newBox.pos();
+        widget.window->m_state |= Desktop::View::WINDOW_STATE_PINNED;
         layout->setPositionGlobal(newBox);
-        // widget.window->m_pinned   = true;
+        target->warpPositionSize();
+
+        widget.window->sizeAnimation()->setValueAndWarp(newSize);
+        widget.window->positionAnimation()->setValueAndWarp(newPos);
         widget.window->sendWindowSize(true);
+        // widget.window->m_pinned   = true;
+        // widget.window->sendWindowSize(true);
+
+        widget.window->m_ruleApplicator->noFocusOverride(Desktop::Types::COverridableVar<bool>(true, Desktop::Types::PRIORITY_SET_PROP));
+        // Hypr 0.56: unmap takes a close-anim snapshot while onCommit has us momentarily unhidden and we see a flash on window kill
+        widget.window->m_ruleApplicator->noAnimOverride(Desktop::Types::COverridableVar<bool>(true, Desktop::Types::PRIORITY_SET_PROP));
 
         widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
         widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
@@ -290,6 +300,7 @@ int freeWidget(const std::string& match, bool preserveFloat = true){
         }
 
         bgw->m_hidden = false;
+        bgw->m_state ^= Desktop::View::WINDOW_STATE_PINNED;
         // bgw->m_pinned = false;
         bgw->m_ruleApplicator->m_tagKeeper.applyTag("-" + widget.tag, true);
         bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
