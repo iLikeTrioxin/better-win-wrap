@@ -161,7 +161,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         // widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
         // widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
         // Desktop::Rule::ruleEngine()->updateAllRules();
-
+        widget.window->m_isMapped = false;
         g_pInputManager->refocus();
         Desktop::focusState()->resetWindowFocus();
     }
@@ -314,6 +314,7 @@ int freeWidget(const std::string& match, bool preserveFloat = true){
         }
 
         bgw->m_hidden = false;
+        widget.window->m_isMapped = true;
         bgw->m_state = Desktop::View::WINDOW_STATE_NONE;
         
         bgw->m_ruleApplicator->noFocusOverride(Desktop::Types::COverridableVar<bool>(false, Desktop::Types::PRIORITY_SET_PROP));
