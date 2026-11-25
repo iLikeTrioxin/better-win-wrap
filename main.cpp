@@ -13,6 +13,7 @@ extern "C" {
 
 #define private public
 #define protected public
+#include <hyprland/src/desktop/state/FocusState.hpp>
 #include <hyprland/src/includes.hpp>
 #include <hyprland/src/desktop/rule/Rule.hpp>
 #include <hyprland/src/config/lua/bindings/LuaBindingsInternal.hpp>
@@ -33,10 +34,19 @@ extern "C" {
 using namespace Render;
 using namespace Render::GL;
 
-#include <hyprutils/string/VarList.hpp>
-#include <hyprutils/string/ConstVarList.hpp>
-
+#include <algorithm>
+#include <optional>
+#include <unordered_map>
+#include <hyprland/src/layout/space/Space.hpp>
+#include <hyprland/src/layout/target/Target.hpp>
+#include <hyprland/src/managers/SessionLockManager.hpp>
+#include <hyprland/src/config/values/ConfigValues.hpp>
+#include <hyprland/src/managers/fullscreen/FullscreenController.hpp>
+#include <hyprland/src/desktop/state/GlobalWindowController.hpp>
+#include <hyprland/src/state/MonitorState.hpp>
+#include <hyprland/src/state/MonitorQuery.hpp>
 #include "globals.hpp"
+#include "bgrender.hpp"
 
 // Do NOT change this function
 APICALL EXPORT std::string PLUGIN_API_VERSION() {
@@ -60,6 +70,7 @@ public:
     bool wasFloating = false;
     bool global      = false;
     bool isDead      = false;
+    uint8_t priority = 0;
 
     std::string tag;
 };
@@ -88,7 +99,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
     widget.wasFloating = true;
 
     // it will always be false for dupes, cuz window was set to float in original
-    if (!widget.window->floating()){
+    if (!layout->floating()){
         widget.wasFloating = false;
 
         if(widget.position.x < 0) newBox.x = widget.monitor->m_position.x;
@@ -97,7 +108,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         if(widget.size.x <= 0) newBox.w = widget.monitor->m_size.x;
         if(widget.size.y <= 0) newBox.h = widget.monitor->m_size.y;
 
-        g_layoutManager->changeFloatingMode(layout);
+        layout->setFloating(true);
     }
 
     if(widget.dupeOf != nullptr){
@@ -171,7 +182,7 @@ PHLWINDOW findWindowByClass(const std::string& match){
     }
     return nullptr;
 }
-PHLWINDOW findMonitorByName(const std::string& name){
+PHLMONITOR findMonitorByName(const std::string& name){
     if(name == "active"){
         return Desktop::focusState()->monitor();
     }
@@ -280,10 +291,10 @@ int freeWidget(const std::string& match, bool preserveFloat = true){
         }
 
         bgw->m_hidden = false;
-        bgw->m_pinned = false;
+        // bgw->m_pinned = false;
         bgw->m_ruleApplicator->m_tagKeeper.applyTag("-" + widget.tag, true);
         bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
-        bgw->updateDecorationValues();
+        // bgw->updateDecorationValues();
 
         if ((bgw->layoutTarget()->floating() != widget.wasFloating) == preserveFloat)
             bgw->layoutTarget()->setFloating(widget.wasFloating);
@@ -441,7 +452,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
 
     static auto P2 = Event::bus()->m_events.window.close.listen([&](PHLWINDOW w) { onCloseWindow(w); });
     // static auto P2 = Event::bus()->m_events.window.open.listen([&](PHLWINDOW w) { onCloseWindow(w); });
-    static auto P3 = Event::bus()->m_events.render.stage.listen([&](eRenderStage stage) { onRenderStage(stage); });
+    static auto P3 = Event::bus()->m_events.render.stage.listen([&](const Event::SRenderStageEvent &event) { onRenderStage(event); });
     static auto P4 = Event::bus()->m_events.config.reloaded.listen([&] { onConfigReload(); });
 
     auto fns = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN7Desktop4View11CSubsurface8onCommitEv");
