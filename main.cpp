@@ -56,7 +56,7 @@ APICALL EXPORT std::string PLUGIN_API_VERSION() {
 inline CFunctionHook* subsurfaceHook = nullptr;
 inline CFunctionHook* commitHook     = nullptr;
 typedef void (*origCommitSubsurface)(Desktop::View::CSubsurface* thisptr);
-typedef void (*origCommit)(void* owner, void* data);
+typedef void (*origCommit)(void* owner, bool initial);
 
 class Widget{
 public:
