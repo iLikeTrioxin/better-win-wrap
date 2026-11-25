@@ -187,7 +187,7 @@ PHLMONITOR findMonitorByName(const std::string& name){
     }
 
     for (auto const& m : State::monitorState()->monitors()) {
-        if(m->name == name) {
+        if(std::string(m->name) == name) {
             return m;
         }
     }
@@ -423,7 +423,7 @@ void onConfigReload(){
     for (auto& widget : widgets){
         widget.window->m_hidden = false;
         widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
-        widget.window->updateDecorationValues();
+        // widget.window->updateDecorationValues();
     }
     Desktop::Rule::ruleEngine()->updateAllRules();
     for(auto& widget : widgets) widget.window->m_hidden = true;
