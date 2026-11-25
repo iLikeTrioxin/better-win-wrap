@@ -394,7 +394,7 @@ void onCommitSubsurface(Desktop::View::CSubsurface* thisptr) {
     }
 }
 
-void onCommit(void* owner, void* data) {
+void onCommit(void* owner, bool initial) {
     const auto PWINDOW = ((Desktop::View::CWindow*)owner)->m_self.lock();
 
     const auto& widget = std::find_if(widgets.begin(), widgets.end(), [PWINDOW](const auto& ref) {
@@ -402,7 +402,7 @@ void onCommit(void* owner, void* data) {
     });
 
     if (widget == widgets.end()) {
-        ((origCommit)commitHook->m_original)(owner, data);
+        ((origCommit)commitHook->m_original)(owner, initial);
         return;
     }
 
@@ -411,7 +411,7 @@ void onCommit(void* owner, void* data) {
         // cant use setHidden cuz that sends suspended and shit too that would be laggy
         PWINDOW->m_hidden = false;
 
-        ((origCommit)commitHook->m_original)(owner, data);
+        ((origCommit)commitHook->m_original)(owner, initial);
         if (const auto MON = w.monitor.lock(); MON)
             g_pHyprRenderer->damageMonitor(MON);
 
@@ -459,7 +459,7 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         throw std::runtime_error("[hyprwidgets] onCommit not found");
     subsurfaceHook = HyprlandAPI::createFunctionHook(PHANDLE, fns[0].address, (void*)&onCommitSubsurface);
 
-    fns = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN7Desktop4View7CWindow12commitWindowEv");
+    fns = HyprlandAPI::findFunctionsByName(PHANDLE, "_ZN7Desktop4View7CWindow12commitWindowEb");
     if (fns.size() < 1)
         throw std::runtime_error("[hyprwidgets] listener_commitWindow not found");
     commitHook = HyprlandAPI::createFunctionHook(PHANDLE, fns[0].address, (void*)&onCommit);
