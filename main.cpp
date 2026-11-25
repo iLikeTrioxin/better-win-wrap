@@ -131,13 +131,13 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         // widget.window->m_realPosition->setValueAndWarp(newBox.pos());
         // widget.window->m_size     = newBox.size();
         // widget.window->m_position = newBox.pos();
-        widget.window->setPositionGlobal(newBox);
-        widget.window->m_pinned   = true;
+        layout->setPositionGlobal(newBox);
+        // widget.window->m_pinned   = true;
         widget.window->sendWindowSize(true);
 
         widget.window->m_ruleApplicator->m_tagKeeper.applyTag("+" + widget.tag, true);
         widget.window->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
-        widget.window->updateDecorationValues();
+        // widget.window->updateDecorationValues();
         Desktop::Rule::ruleEngine()->updateAllRules();
         widget.window->m_hidden = true;
         Desktop::focusState()->resetWindowFocus();
@@ -157,6 +157,31 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
 
     Log::logger->log(Log::DEBUG, "[hyperwidgets] new widget added successfully");
     return &(widgets[widgets.size()-1]);
+}
+
+PHLWINDOW findWindowByClass(const std::string& match){
+    if(match == "active"){
+        return Desktop::focusState()->window();
+    }
+
+    for (auto const& w : Desktop::windowState()->windows()) {
+        if(w->metadata().appID() == match) {
+            return w;
+        }
+    }
+    return nullptr;
+}
+PHLWINDOW findMonitorByName(const std::string& name){
+    if(name == "active"){
+        return Desktop::focusState()->monitor();
+    }
+
+    for (auto const& m : State::monitorState()->monitors()) {
+        if(m->name == name) {
+            return m;
+        }
+    }
+    return nullptr;
 }
 
 int luaAddWidget(lua_State* L) {
@@ -193,8 +218,7 @@ int luaAddWidget(lua_State* L) {
     bool global   = (bool)getInt("global",  0);
     bool parallax = (bool)getInt("parallax", 0);
 
-    Hyprutils::String::CVarList vars(match, 0, ',');
-    PHLWINDOWREF window = g_pCompositor->getWindowByRegex(vars[0]);
+    PHLWINDOWREF window = findWindowByClass(match);
 
     if (!window){
         HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Could not match any window to '"+match+"' match rule.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
@@ -204,7 +228,7 @@ int luaAddWidget(lua_State* L) {
     PHLMONITORREF monitor = window->m_monitor;
 
     if (monName != "active" && monName != "all")
-        monitor = g_pCompositor->getMonitorFromName(monName);
+        monitor = findMonitorByName(monName);
     
     if (!monitor){
         HyprlandAPI::addNotification(PHANDLE, "[hyprwidgets] Could not match any monitor to '"+monName+"'.", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
@@ -219,7 +243,7 @@ int luaAddWidget(lua_State* L) {
     // always begin from monitor that app lives in
     addWidget(window, monitor, tag, {x, y}, {w, h}, z, global);
 
-    for(auto ref : g_pCompositor->m_monitors){
+    for(auto ref : State::monitorState()->monitors()){
         if(ref == monitor.lock()) continue;
         addWidget(window, ref, tag, {x, y}, {w, h}, z, global);
     }
@@ -233,19 +257,6 @@ void onCloseWindow(PHLWINDOW pWindow) {
     });
 
     Log::logger->log(Log::DEBUG, "[hyprwidgets] Widget removed");
-}
-
-PHLWINDOW findWindowByClass(const std::string& match){
-    if(match == "active"){
-        return Desktop::focusState()->window();
-    }
-
-    for (auto const& w : Desktop::windowState()->windows()) {
-        if(w->metadata()->appID() == match) {
-            return w;
-        }
-    }
-    return nullptr;
 }
 
 int freeWidget(const std::string& match, bool preserveFloat = true){
@@ -274,8 +285,8 @@ int freeWidget(const std::string& match, bool preserveFloat = true){
         bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
         bgw->updateDecorationValues();
 
-        if ((bgw->floating() != widget.wasFloating) == preserveFloat)
-            g_layoutManager->changeFloatingMode(bgw->layoutTarget());
+        if ((bgw->layoutTarget()->floating() != widget.wasFloating) == preserveFloat)
+            bgw->layoutTarget()->setFloating(widget.wasFloating);
 
         widget.isDead = true;
     }
@@ -306,14 +317,26 @@ int luaFreeWidget(lua_State* L) {
     return freeWidget(match);
 }
 
-void onRenderStage(eRenderStage stage) {
-    if (stage != RENDER_POST_WALLPAPER)
+static bool shouldPauseBg(const PHLMONITOR &mon)
+{
+    if (g_pSessionLockManager->isSessionLocked())
+        return true;
+    if (!mon || !mon->m_dpmsStatus)
+        return true;
+    return Fullscreen::controller()->getFullscreenModes(mon).internal == Fullscreen::FSMODE_FULLSCREEN;
+}
+
+void onRenderStage(const Event::SRenderStageEvent &event) {
+    if (event.stage != RENDER_POST_WALLPAPER || !event.context || !event.monitor)
         return;
+
+    Render::CRenderContext &ctx = event.context->get();
+    const bool pause = shouldPauseBg(event.monitor);
 
     for (const auto& widget : widgets) {
         const auto bgw = widget.window.lock();
 
-        if (widget.monitor != g_pHyprRenderer->m_renderData.pMonitor && !widget.global)
+        if (widget.monitor != event.monitor && !widget.global)
             continue;
 
         // Here cuz moving windows, workspaces, etc. causes
@@ -325,7 +348,7 @@ void onRenderStage(eRenderStage stage) {
         bgw->m_realPosition->m_Value = widget.position;
         bgw->m_realSize    ->m_Value = widget.size;
 
-        g_pHyprRenderer->renderWindow(bgw, widget.monitor.lock(), Time::steadyNow(), false, RENDER_PASS_ALL, false, true);
+        g_pHyprRenderer->renderWindow(ctx, bgw, widget.monitor.lock(), Render::SWindowRenderPresentation{}, Time::steadyNow(), false, RENDER_PASS_ALL, false, true);
 
         bgw->m_hidden = true;
     }
