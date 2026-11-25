@@ -141,7 +141,6 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         // widget.window->m_realPosition->setValueAndWarp(newBox.pos());
         // widget.window->m_size     = newBox.size();
         // widget.window->m_position = newBox.pos();
-        widget.window->m_state |= Desktop::View::WINDOW_STATE_PINNED;
         layout->setPositionGlobal(newBox);
         layout->warpPositionSize();
 
@@ -162,6 +161,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
         widget.window->m_hidden = true;
         Desktop::focusState()->resetWindowFocus();
         g_pInputManager->refocus();
+        widget.window->m_state |= Desktop::View::WINDOW_STATE_PINNED;
     }
 
     widget.position.x = newBox.x;
