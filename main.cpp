@@ -28,6 +28,7 @@ extern "C" {
 #include <hyprland/src/helpers/time/Time.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/event/EventBus.hpp>
+#include <hyprland/src/layout/target/WindowTarget.hpp>
 #undef private
 #undef protected
 
