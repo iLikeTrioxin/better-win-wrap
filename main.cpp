@@ -93,7 +93,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
 
     if(original != widgets.end()) widget.dupeOf = &(*original);
 
-    const auto& layout = widget.window->layoutTarget();
+    auto layout = widget.window->layoutTarget();
     CBox newBox = layout->position();
     widget.wasFloating = true;
 
