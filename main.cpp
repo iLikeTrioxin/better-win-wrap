@@ -300,7 +300,7 @@ int freeWidget(const std::string& match, bool preserveFloat = true){
         }
 
         bgw->m_hidden = false;
-        bgw->m_state ^= Desktop::View::WINDOW_STATE_PINNED;
+        bgw->m_state = Desktop::View::WINDOW_STATE_NONE;
         // bgw->m_pinned = false;
         bgw->m_ruleApplicator->m_tagKeeper.applyTag("-" + widget.tag, true);
         bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
