@@ -279,10 +279,22 @@ void onCloseWindow(PHLWINDOW pWindow) {
     Log::logger->log(Log::DEBUG, "[hyprwidgets] Widget removed");
 }
 
+void quickFix(){
+    for (auto const& w : Desktop::windowState()->windows()) {
+        w->m_ruleApplicator->noFocusOverride(Desktop::Types::COverridableVar<bool>(false, Desktop::Types::PRIORITY_SET_PROP));
+        // Hypr 0.56: unmap takes a close-anim snapshot while onCommit has us momentarily unhidden and we see a flash on window kill
+        w->m_ruleApplicator->noAnimOverride(Desktop::Types::COverridableVar<bool>(false, Desktop::Types::PRIORITY_SET_PROP));
+    }
+}
+
 int freeWidget(const std::string& match, bool preserveFloat = true){
     // Hyprutils::String::CVarList vars(match, 0, ',');
     // PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
     PHLWINDOW pWindow = findWindowByClass(match);
+    
+    if(match == "qfix"){
+        quickFix();
+    }
 
     for(auto& widget : widgets){
         const auto bgw = widget.window.lock();
@@ -301,6 +313,10 @@ int freeWidget(const std::string& match, bool preserveFloat = true){
 
         bgw->m_hidden = false;
         bgw->m_state = Desktop::View::WINDOW_STATE_NONE;
+        
+        bgw->m_ruleApplicator->noFocusOverride(Desktop::Types::COverridableVar<bool>(false, Desktop::Types::PRIORITY_SET_PROP));
+        // Hypr 0.56: unmap takes a close-anim snapshot while onCommit has us momentarily unhidden and we see a flash on window kill
+        bgw->m_ruleApplicator->noAnimOverride(Desktop::Types::COverridableVar<bool>(false, Desktop::Types::PRIORITY_SET_PROP));
         // bgw->m_pinned = false;
         bgw->m_ruleApplicator->m_tagKeeper.applyTag("-" + widget.tag, true);
         bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
