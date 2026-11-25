@@ -29,7 +29,7 @@ extern "C" {
 #include <hyprland/src/layout/LayoutManager.hpp>
 #include <hyprland/src/event/EventBus.hpp>
 #include <hyprland/src/layout/target/WindowTarget.hpp>
-#include <hyprland/src/layout/algorithm/Algorithm.cpp>
+#include <hyprland/src/layout/algorithm/Algorithm.hpp>
 #undef private
 #undef protected
 
