@@ -72,7 +72,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
     widget.tag      = tag;
     widget.position = position;
     widget.size     = size;
-    widget.priority = priority;
+    // widget.priority = priority;
     widget.global   = global;
     widget.window   = window;
     widget.monitor  = monitor;
@@ -88,7 +88,7 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
     widget.wasFloating = true;
 
     // it will always be false for dupes, cuz window was set to float in original
-    if (!widget.window->m_isFloating){
+    if (!widget.window->floating()){
         widget.wasFloating = false;
 
         if(widget.position.x < 0) newBox.x = widget.monitor->m_position.x;
@@ -126,11 +126,12 @@ Widget* addWidget(PHLWINDOWREF window, PHLMONITORREF monitor, const std::string&
     if(widget.size.y     >  0) newBox.h = (widget.monitor->m_size.y / 100.0) * std::clamp(widget.size.y, 1.0, 100.0);
 
     if(widget.dupeOf == nullptr){
-        layout->space()->setTargetGeom(newBox, layout);
-        widget.window->m_realSize->setValueAndWarp(newBox.size());
-        widget.window->m_realPosition->setValueAndWarp(newBox.pos());
-        widget.window->m_size     = newBox.size();
-        widget.window->m_position = newBox.pos();
+        // layout->space()->setTargetGeom(newBox, layout);
+        // widget.window->m_realSize->setValueAndWarp(newBox.size());
+        // widget.window->m_realPosition->setValueAndWarp(newBox.pos());
+        // widget.window->m_size     = newBox.size();
+        // widget.window->m_position = newBox.pos();
+        widget.window->setPositionGlobal(newBox);
         widget.window->m_pinned   = true;
         widget.window->sendWindowSize(true);
 
@@ -234,9 +235,23 @@ void onCloseWindow(PHLWINDOW pWindow) {
     Log::logger->log(Log::DEBUG, "[hyprwidgets] Widget removed");
 }
 
-int freeWidget(std::string match, bool preserveFloat = true){
-    Hyprutils::String::CVarList vars(match, 0, ',');
-    PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
+PHLWINDOW findWindowByClass(const std::string& match){
+    if(match == "active"){
+        return Desktop::focusState()->window();
+    }
+
+    for (auto const& w : Desktop::windowState()->windows()) {
+        if(w->metadata()->appID() == match) {
+            return w;
+        }
+    }
+    return nullptr;
+}
+
+int freeWidget(const std::string& match, bool preserveFloat = true){
+    // Hyprutils::String::CVarList vars(match, 0, ',');
+    // PHLWINDOW pWindow = g_pCompositor->getWindowByRegex(vars[0]);
+    PHLWINDOW pWindow = findWindowByClass(match);
 
     for(auto& widget : widgets){
         const auto bgw = widget.window.lock();
@@ -259,7 +274,7 @@ int freeWidget(std::string match, bool preserveFloat = true){
         bgw->m_ruleApplicator->propertiesChanged(Desktop::Rule::RULE_PROP_TAG);
         bgw->updateDecorationValues();
 
-        if ((bgw->m_isFloating != widget.wasFloating) == preserveFloat)
+        if ((bgw->floating() != widget.wasFloating) == preserveFloat)
             g_layoutManager->changeFloatingMode(bgw->layoutTarget());
 
         widget.isDead = true;
